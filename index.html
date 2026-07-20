@@ -3,756 +3,806 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Little Body Detective v3.0.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>Little Body Detective v3.1</title>
     <style>
-        /* 嚴格採用深色漸層背景 (深藍/星空黑)，以凸顯 3D 器官發光效果 */
-        body { margin: 0; overflow: hidden; background: linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 100%); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
-        #ui-panel { position: absolute; top: 20px; left: 20px; width: 380px; max-height: calc(100vh - 40px); overflow-y: auto; z-index: 10; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.5) transparent; }
-        #ui-panel::-webkit-scrollbar { width: 6px; }
-        #ui-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.5); border-radius: 3px; }
-        .glass { background: rgba(20, 20, 30, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
-        .btn { transition: all 0.2s ease; }
-        .btn:active { transform: scale(0.95); }
-        .btn.active { box-shadow: 0 0 15px rgba(255,255,255,0.4) inset; border-color: rgba(255,255,255,0.8); }
-        
-        /* 2D 示波器畫布樣式 */
-        #oscilloscope { width: 100%; height: 120px; border-radius: 8px; margin-top: 10px; border: 2px solid rgba(255,255,255,0.2); }
-        .ecg-bg { background-color: #111 !important; background-image: linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px) !important; background-size: 10px 10px !important; }
-        .rumble-bg { background-color: #0b0c10 !important; }
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #050510, #101025, #000000);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            user-select: none;
+        }
+        #ui-panel {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 380px;
+            height: 100%;
+            background: rgba(20, 20, 40, 0.65);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 5px 0 20px rgba(0,0,0,0.5);
+        }
+        h1 {
+            margin: 0;
+            font-size: 22px;
+            color: #4dc9ff;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(77, 201, 255, 0.5);
+            letter-spacing: 1px;
+        }
+        .section {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .section-title {
+            font-size: 14px;
+            color: #aaa;
+            margin-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+            font-weight: bold;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(77, 201, 255, 0.1);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid rgba(77, 201, 255, 0.3);
+            font-weight: bold;
+            font-size: 13px;
+        }
+        button:hover {
+            background: rgba(77, 201, 255, 0.3);
+            box-shadow: 0 0 10px rgba(77, 201, 255, 0.5);
+        }
+        button.active {
+            background: #4dc9ff;
+            color: #000;
+            box-shadow: 0 0 15px #4dc9ff;
+        }
+        .organ-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 120px;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid #333;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .play-btn {
+            font-size: 18px;
+            padding: 15px;
+            background: rgba(46, 204, 113, 0.2);
+            border-color: #2ecc71;
+            color: #2ecc71;
+            margin-bottom: 0;
+        }
+        .play-btn:hover {
+            background: rgba(46, 204, 113, 0.4);
+            box-shadow: 0 0 15px #2ecc71;
+        }
+        .play-btn.playing {
+            background: #e74c3c;
+            color: #fff;
+            border-color: #e74c3c;
+            box-shadow: 0 0 20px #e74c3c;
+        }
+        .lesson-btn {
+            background: rgba(255, 152, 0, 0.1);
+            border-color: #ff9800;
+            color: #ff9800;
+        }
+        .lesson-btn:hover {
+            background: rgba(255, 152, 0, 0.4);
+            box-shadow: 0 0 15px #ff9800;
+        }
+        .lesson-btn.active {
+            background: #ff9800;
+            color: #000;
+            box-shadow: 0 0 20px #ff9800;
+        }
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
-<body class="text-white">
+<body>
 
-    <!-- 3D Canvas -->
-    <div id="canvas-container"></div>
+<div id="ui-panel">
+    <h1>Little Body Detective</h1>
+    
+    <button id="btn-play" class="play-btn" onclick="togglePlay()">▶️ 開始監聽</button>
+    
+    <div id="canvas-container">
+        <canvas id="waveCanvas" width="340" height="120"></canvas>
+    </div>
 
-    <!-- UI Panel (毛玻璃質感) -->
-    <div id="ui-panel" class="glass rounded-2xl p-5 flex flex-col gap-5">
-        
-        <!-- Header -->
-        <div class="text-center">
-            <h1 class="text-2xl font-bold text-pink-300 drop-shadow-md">Little Body Detective</h1>
-            <p class="text-xs text-blue-200 mt-1">人體課綱教具版 v3.0.0</p>
-        </div>
-
-        <!-- 主控台 -->
-        <div class="flex gap-2">
-            <button id="btn-play" class="btn flex-1 bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                <span>▶️</span> 開始監聽
-            </button>
-            <button id="btn-stop" class="btn flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                <span>⏹</span> 停止監聽
-            </button>
-        </div>
-
-        <!-- 2D 監視器畫布 -->
-        <div class="relative">
-            <div class="absolute top-2 left-3 px-2 py-1 bg-black/70 rounded text-xs font-mono text-white z-10 border border-gray-600" id="monitor-label">STATUS: STANDBY</div>
-            <canvas id="oscilloscope" width="340" height="120" class="ecg-bg"></canvas>
-        </div>
-
-        <!-- 聽診器官選擇器 -->
-        <div>
-            <h2 class="text-sm font-semibold text-gray-300 mb-2 border-b border-gray-500/50 pb-1">聽診部位 (可直接點擊3D模型)</h2>
-            <div class="grid grid-cols-3 gap-2">
-                <button class="btn organ-btn active bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="heart">🫀 心臟</button>
-                <button class="btn organ-btn bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="stomach">🟢 胃部</button>
-                <button class="btn organ-btn bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="smallIntestine">🟡 小腸</button>
-                <button class="btn organ-btn bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="largeIntestine">🟤 大腸</button>
-                <button class="btn organ-btn bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="spleen">🟣 脾臟</button>
-                <button class="btn organ-btn bg-gray-700/60 hover:bg-gray-600 border border-gray-500 rounded-lg py-2 text-sm shadow" data-organ="kidneys">🔵 腎臟</button>
-            </div>
-        </div>
-
-        <!-- 教案一：對照實驗 -->
-        <div>
-            <h2 class="text-sm font-semibold text-gray-300 mb-2 border-b border-gray-500/50 pb-1">教案一：對照實驗</h2>
-            <div class="flex flex-col gap-2">
-                <div class="flex gap-2">
-                    <button class="btn state-btn active flex-1 bg-indigo-600/70 hover:bg-indigo-500 border border-indigo-400 rounded-lg py-2 text-sm shadow" data-state="normal">👤 一般狀態</button>
-                    <button class="btn state-btn flex-1 bg-orange-600/70 hover:bg-orange-500 border border-orange-400 rounded-lg py-2 text-sm shadow" data-state="caffeine">☕ 咖啡因刺激</button>
-                </div>
-                <div class="flex gap-2">
-                    <button class="btn state-btn flex-1 bg-green-600/70 hover:bg-green-500 border border-green-400 rounded-lg py-2 text-sm shadow" data-state="highFiber">🥦 高纖維消化</button>
-                    <button class="btn state-btn flex-1 bg-red-600/70 hover:bg-red-500 border border-red-400 rounded-lg py-2 text-sm shadow" data-state="sugar">🥤 精緻糖消化</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 教案二：營養去哪了 -->
-        <div>
-            <h2 class="text-sm font-semibold text-gray-300 mb-2 border-b border-gray-500/50 pb-1">教案二：營養去哪了</h2>
-            <button id="btn-route" class="btn w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2">
-                <span>🔄</span> 自動消化路徑追蹤
-            </button>
+    <div class="section">
+        <div class="section-title">聽診器官選擇器</div>
+        <div class="organ-grid">
+            <button id="org-heart" onclick="selectOrgan('heart')" class="active">🫀 心臟</button>
+            <button id="org-stomach" onclick="selectOrgan('stomach')">🟢 胃部</button>
+            <button id="org-smallIntestine" onclick="selectOrgan('smallIntestine')">🟡 小腸</button>
+            <button id="org-largeIntestine" onclick="selectOrgan('largeIntestine')">🟤 大腸</button>
+            <button id="org-spleen" onclick="selectOrgan('spleen')">🟣 脾臟</button>
+            <button id="org-kidneys" onclick="selectOrgan('kidneys')">🔵 腎臟</button>
         </div>
     </div>
 
-    <script>
-        /**
-         * 核心狀態管理 (App State)
-         */
-        const AppState = {
-            isPlaying: false,
-            currentOrgan: 'heart', // heart, stomach, smallIntestine, largeIntestine, spleen, kidneys
-            currentState: 'normal', // normal, caffeine, highFiber, sugar
-            isAutoRouting: false,
-            bpm: 60
-        };
+    <div class="section">
+        <div class="section-title">【教案一：對照實驗】</div>
+        <button id="exp-normal" onclick="setExp('normal')" class="active">一般狀態 (基礎對照)</button>
+        <button id="exp-caffeine" onclick="setExp('caffeine')">☕ 咖啡因刺激 (對比一般)</button>
+        <button id="exp-fiber" onclick="setExp('fiber')">🥦 高纖維消化 (對比精緻糖)</button>
+        <button id="exp-sugar" onclick="setExp('sugar')">🥤 精緻糖消化 (對比高纖維)</button>
+    </div>
 
-        const OrganColors = {
-            heart: 0xff3333,
-            stomach: 0x33ff33,
-            smallIntestine: 0xffaa00,
-            largeIntestine: 0x6b4226,
-            spleen: 0x9b30ff,
-            kidneys: 0x3399ff
-        };
+    <div class="section">
+        <div class="section-title">【教案二：營養去哪了】</div>
+        <button id="btn-track" class="lesson-btn" onclick="startTracking()">🔄 消化路徑追蹤 (胃➔小腸➔大腸)</button>
+    </div>
+</div>
 
-        /**
-         * Web Audio API 聲音引擎 (DSP 邏輯)
-         */
-        let audioCtx;
-        let masterGain;
-        let currentSource;
+<div id="webgl-container"></div>
 
-        function initAudio() {
-            if (audioCtx) return;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0; // 預設靜音
-            masterGain.connect(audioCtx.destination);
-        }
+<script>
+/* =======================================================================
+   1. 應用程式全域狀態
+======================================================================== */
+let isPlaying = false;
+let currentOrgan = 'heart';
+let currentExpState = 'normal';
+let trackInterval = null;
 
-        function playSound() {
-            if (!audioCtx) initAudio();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
-            if (currentSource) {
-                currentSource.stop();
-                currentSource.disconnect();
-            }
+/* =======================================================================
+   2. Web Audio API 聲音引擎 (嚴格 DSP 實作)
+======================================================================== */
+let audioCtx, masterGain;
+const nodes = {};
 
-            const buffer = generateAudioBuffer(AppState.currentOrgan, AppState.currentState);
-            currentSource = audioCtx.createBufferSource();
-            currentSource.buffer = buffer;
-            currentSource.loop = true; // 無縫循環播放
-            currentSource.connect(masterGain);
-            currentSource.start();
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // 主音量控制 (確保備課時能靜默)
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0; 
+    masterGain.connect(audioCtx.destination);
 
-            masterGain.gain.setTargetAtTime(1, audioCtx.currentTime, 0.1);
-        }
+    const sampleRate = audioCtx.sampleRate;
 
-        function stopSound() {
-            if (masterGain) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
-        }
+    // 產生白噪音 Buffer
+    const noiseBuffer = audioCtx.createBuffer(1, sampleRate * 5, sampleRate);
+    const noiseData = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < noiseData.length; i++) {
+        noiseData[i] = Math.random() * 2 - 1;
+    }
 
-        // IIR 低通濾波器實作
-        function applyLowPass(data, cutoff, sampleRate) {
-            const rc = 1.0 / (cutoff * 2 * Math.PI);
-            const dt = 1.0 / sampleRate;
-            const alpha = dt / (rc + dt);
-            const out = new Float32Array(data.length);
-            out[0] = data[0];
-            for(let i = 1; i < data.length; i++) {
-                out[i] = out[i-1] + alpha * (data[i] - out[i-1]);
-            }
-            return out;
-        }
+    // --- 心臟 (Lub-dub 正弦波 + 指數衰減包絡線) ---
+    const hbBuffer = audioCtx.createBuffer(1, sampleRate * 1, sampleRate);
+    const hbData = hbBuffer.getChannelData(0);
+    for(let i=0; i < hbData.length; i++) {
+        let t = i / sampleRate;
+        let lub = t < 0.25 ? Math.sin(2 * Math.PI * 45 * t) * Math.exp(-t * 25) : 0;
+        let t_dub = t - 0.25;
+        let dub = (t_dub >= 0 && t_dub < 0.25) ? Math.sin(2 * Math.PI * 65 * t_dub) * Math.exp(-t_dub * 30) : 0;
+        hbData[i] = (lub + dub) * 0.8;
+    }
+    nodes.heart = audioCtx.createBufferSource();
+    nodes.heart.buffer = hbBuffer;
+    nodes.heart.loop = true;
+    nodes.heartGain = audioCtx.createGain();
+    nodes.heartGain.gain.value = 0;
+    nodes.heart.connect(nodes.heartGain).connect(masterGain);
+    nodes.heart.start();
 
-        function generateAudioBuffer(organ, state) {
-            const sampleRate = audioCtx.sampleRate;
-            const duration = 5.0; 
-            const length = sampleRate * duration;
-            const buffer = audioCtx.createBuffer(1, length, sampleRate);
-            const data = buffer.getChannelData(0);
-            
-            // 狀態連動：心跳速率
-            let bpm = 60;
-            if (state === 'caffeine') bpm = 120;
-            if (state === 'sugar' && organ === 'heart') bpm = 50; 
-            AppState.bpm = bpm;
-            const cycleTime = 60 / bpm;
+    // --- 胃部 (咕嚕聲：白噪音 -> 低通 200Hz -> 3Hz LFO 振幅調變) ---
+    nodes.stomach = audioCtx.createBufferSource();
+    nodes.stomach.buffer = noiseBuffer;
+    nodes.stomach.loop = true;
+    nodes.stomachFilter = audioCtx.createBiquadFilter();
+    nodes.stomachFilter.type = 'lowpass';
+    nodes.stomachFilter.frequency.value = 200;
+    nodes.stomachGain = audioCtx.createGain();
+    nodes.stomachGain.gain.value = 0;
+    nodes.stomachLfo = audioCtx.createOscillator();
+    nodes.stomachLfo.frequency.value = 3;
+    nodes.stomachLfoGain = audioCtx.createGain();
+    nodes.stomachLfo.connect(nodes.stomachLfoGain.gain);
+    nodes.stomach.connect(nodes.stomachFilter).connect(nodes.stomachGain).connect(masterGain);
+    nodes.stomachLfo.start();
+    nodes.stomach.start();
 
-            // 產生基底白噪音
-            const whiteNoise = new Float32Array(length);
-            for(let i = 0; i < length; i++) whiteNoise[i] = (Math.random() * 2 - 1);
+    // --- 小腸 (水流氣泡：白噪音 -> 帶通 1000Hz -> 較快不規則 8Hz LFO) ---
+    nodes.si = audioCtx.createBufferSource();
+    nodes.si.buffer = noiseBuffer;
+    nodes.si.loop = true;
+    nodes.siFilter = audioCtx.createBiquadFilter();
+    nodes.siFilter.type = 'bandpass';
+    nodes.siFilter.frequency.value = 1000;
+    nodes.siFilter.Q.value = 1.5;
+    nodes.siGain = audioCtx.createGain();
+    nodes.siGain.gain.value = 0;
+    nodes.siLfo = audioCtx.createOscillator();
+    nodes.siLfo.frequency.value = 8;
+    nodes.siLfo.connect(nodes.siGain.gain);
+    nodes.si.connect(nodes.siFilter).connect(nodes.siGain).connect(masterGain);
+    nodes.siLfo.start();
+    nodes.si.start();
 
-            if (organ === 'heart') {
-                for (let i = 0; i < length; i++) {
-                    let t = i / sampleRate;
-                    let cycle = t % cycleTime;
-                    
-                    if (state === 'sugar' && Math.random() > 0.9995) cycle += 0.1; // 心律不整
+    // --- 大腸 (厚實蠕動摩擦：白噪音 -> 低通 100Hz -> 極慢 0.5Hz LFO + WaveShaper 失真) ---
+    nodes.li = audioCtx.createBufferSource();
+    nodes.li.buffer = noiseBuffer;
+    nodes.li.loop = true;
+    nodes.liFilter = audioCtx.createBiquadFilter();
+    nodes.liFilter.type = 'lowpass';
+    nodes.liFilter.frequency.value = 100;
+    
+    // WaveShaper 曲線模擬輕微 Overdrive 失真
+    const curve = new Float32Array(4096);
+    for (let i = 0; i < 4096; i++) {
+        let x = (i * 2) / 4096 - 1;
+        curve[i] = (Math.PI + 5) * x / (Math.PI + 5 * Math.abs(x));
+    }
+    nodes.liDist = audioCtx.createWaveShaper();
+    nodes.liDist.curve = curve;
+    nodes.liDist.oversample = '4x';
+    
+    nodes.liGain = audioCtx.createGain();
+    nodes.liGain.gain.value = 0;
+    nodes.liLfo = audioCtx.createOscillator();
+    nodes.liLfo.frequency.value = 0.5;
+    nodes.liLfo.connect(nodes.liGain.gain);
+    nodes.li.connect(nodes.liFilter).connect(nodes.liDist).connect(nodes.liGain).connect(masterGain);
+    nodes.liLfo.start();
+    nodes.li.start();
 
-                    // 第一心音 (Lub)
-                    let env1 = cycle < 0.25 ? Math.exp(-cycle * (state === 'caffeine' ? 35 : 25)) : 0;
-                    let lub = Math.sin(2 * Math.PI * 45 * cycle) * env1;
-                    
-                    // 第二心音 (Dub)
-                    let t2 = cycle - 0.25;
-                    let env2 = (t2 >= 0 && t2 < 0.25) ? Math.exp(-t2 * (state === 'caffeine' ? 40 : 30)) : 0;
-                    let dub = Math.sin(2 * Math.PI * 65 * t2) * env2;
-                    
-                    data[i] = (lub + dub) * 0.8;
-                }
-            } 
-            else if (organ === 'stomach') {
-                let lpfCutoff = state === 'sugar' ? 100 : (state === 'highFiber' ? 300 : 200);
-                let filtered = applyLowPass(whiteNoise, lpfCutoff, sampleRate);
-                
-                let lfoFreq = 3;
-                let lfoPower = state === 'sugar' ? 8 : (state === 'highFiber' ? 2 : 4);
-                
-                for (let i = 0; i < length; i++) {
-                    let t = i / sampleRate;
-                    let lfo = (Math.sin(2 * Math.PI * lfoFreq * t) + 1) / 2;
-                    data[i] = filtered[i] * Math.pow(lfo, lfoPower) * 2.5;
-                }
-            }
-            else if (organ === 'smallIntestine') {
-                let lpf = applyLowPass(whiteNoise, 1200, sampleRate);
-                let superLpf = applyLowPass(whiteNoise, 800, sampleRate);
-                
-                for (let i = 0; i < length; i++) {
-                    let t = i / sampleRate;
-                    let bpf = lpf[i] - superLpf[i];
-                    let lfo = Math.abs(Math.sin(2*Math.PI*8*t) * Math.sin(2*Math.PI*3.3*t));
-                    let power = state === 'highFiber' ? 1 : (state === 'sugar' ? 4 : 2);
-                    data[i] = bpf * Math.pow(lfo, power) * 3.0;
-                }
-            }
-            else if (organ === 'largeIntestine') {
-                let filtered = applyLowPass(whiteNoise, state === 'highFiber' ? 150 : 80, sampleRate);
-                for (let i = 0; i < length; i++) {
-                    let t = i / sampleRate;
-                    let lfo = (Math.sin(2 * Math.PI * 0.5 * t) + 1) / 2;
-                    let val = filtered[i] * Math.pow(lfo, state === 'sugar' ? 4 : 2) * 5.0;
-                    data[i] = Math.tanh(val) * 0.8; 
-                }
-            }
-            else if (organ === 'spleen' || organ === 'kidneys') {
-                let filtered = applyLowPass(whiteNoise, 40, sampleRate);
-                for (let i = 0; i < length; i++) {
-                    data[i] = filtered[i] * 0.6;
-                }
-            }
+    // --- 脾/腎 (過濾背景音：粉紅噪音近似，低通 400Hz，平穩包絡線) ---
+    nodes.spleen = audioCtx.createBufferSource();
+    nodes.spleen.buffer = noiseBuffer;
+    nodes.spleen.loop = true;
+    nodes.spleenFilter = audioCtx.createBiquadFilter();
+    nodes.spleenFilter.type = 'lowpass';
+    nodes.spleenFilter.frequency.value = 400; 
+    nodes.spleenGain = audioCtx.createGain();
+    nodes.spleenGain.gain.value = 0;
+    nodes.spleen.connect(nodes.spleenFilter).connect(nodes.spleenGain).connect(masterGain);
+    nodes.spleen.start();
+}
 
-            return buffer;
-        }
+function updateAudio() {
+    if(!audioCtx) return;
 
-        /**
-         * 2D 監視器畫布 (Oscilloscope)
-         */
-        const canvas = document.getElementById('oscilloscope');
+    // 先將所有器官聲音淡出歸零
+    const time = audioCtx.currentTime;
+    nodes.heartGain.gain.setTargetAtTime(0, time, 0.1);
+    nodes.stomachGain.gain.setTargetAtTime(0, time, 0.1);
+    nodes.siGain.gain.setTargetAtTime(0, time, 0.1);
+    nodes.liGain.gain.setTargetAtTime(0, time, 0.1);
+    nodes.spleenGain.gain.setTargetAtTime(0, time, 0.1);
+
+    // 如果停止監聽，主音量設為 0
+    if(!isPlaying) {
+        masterGain.gain.setTargetAtTime(0, time, 0.1);
+        return;
+    }
+    
+    masterGain.gain.setTargetAtTime(1, time, 0.1);
+
+    // 重置基礎狀態參數
+    nodes.heart.playbackRate.value = 1.0;
+    nodes.stomachFilter.frequency.value = 200;
+    nodes.stomachLfo.frequency.value = 3;
+    nodes.siLfo.frequency.value = 8;
+    nodes.liLfo.frequency.value = 0.5;
+    nodes.liFilter.frequency.value = 100;
+
+    // 根據教案狀態連動音效參數
+    if (currentExpState === 'caffeine') {
+        nodes.heart.playbackRate.value = 2.0; // 心跳極快
+    } else if (currentExpState === 'fiber') {
+        nodes.stomachFilter.frequency.value = 350; // 聲音飽滿厚實
+        nodes.liLfo.frequency.value = 1.2; 
+    } else if (currentExpState === 'sugar') {
+        nodes.stomachFilter.frequency.value = 100; // 斷續空洞
+        nodes.siLfo.frequency.value = 2; // 腸道無力
+        nodes.liFilter.frequency.value = 50; 
+    }
+    
+    // 開啟當前選中器官的音量
+    if (currentOrgan === 'heart') nodes.heartGain.gain.setTargetAtTime(1, time, 0.1);
+    else if (currentOrgan === 'stomach') nodes.stomachGain.gain.setTargetAtTime(1, time, 0.1);
+    else if (currentOrgan === 'smallIntestine') nodes.siGain.gain.setTargetAtTime(1, time, 0.1);
+    else if (currentOrgan === 'largeIntestine') nodes.liGain.gain.setTargetAtTime(1, time, 0.1);
+    else if (currentOrgan === 'spleen' || currentOrgan === 'kidneys') nodes.spleenGain.gain.setTargetAtTime(0.3, time, 0.1);
+}
+
+/* =======================================================================
+   3. UI 邏輯控制
+======================================================================== */
+function togglePlay() {
+    const btn = document.getElementById('btn-play');
+    if(!isPlaying) {
+        initAudio();
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        isPlaying = true;
+        btn.innerHTML = '⏹ 停止監聽';
+        btn.classList.add('playing');
+    } else {
+        isPlaying = false;
+        btn.innerHTML = '▶️ 開始監聽';
+        btn.classList.remove('playing');
+        
+        // 停止時的靜默防護
+        if(masterGain) masterGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        const canvas = document.getElementById('waveCanvas');
         const ctx = canvas.getContext('2d');
-        const label = document.getElementById('monitor-label');
-        let animationId;
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空波形
         
-        function drawWaveform() {
-            animationId = requestAnimationFrame(drawWaveform);
-            
-            if (!AppState.isPlaying) {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                label.innerText = "STATUS: STANDBY (SILENT)";
-                return;
-            }
-
-            const time = performance.now() / 1000;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            if (AppState.currentOrgan === 'heart') {
-                canvas.className = 'ecg-bg';
-                ctx.strokeStyle = '#ff3b3b';
-                ctx.lineWidth = 2.5;
-                label.innerText = `ECG - HR: ${AppState.bpm} BPM`;
-                label.style.color = '#ff3b3b';
-            } else {
-                canvas.className = 'rumble-bg';
-                ctx.strokeStyle = '#00f2fe';
-                ctx.lineWidth = 1.5;
-                const orgName = document.querySelector(`[data-organ="${AppState.currentOrgan}"]`).innerText;
-                label.innerText = `DSP - ${orgName} Activity`;
-                label.style.color = '#00f2fe';
-            }
-
-            ctx.beginPath();
-            const width = canvas.width;
-            const height = canvas.height;
-            const midY = height / 2;
-
-            for (let x = 0; x < width; x++) {
-                let t = time - (width - x) * 0.005; 
-                let y = midY;
-
-                if (AppState.currentOrgan === 'heart') {
-                    let cycle = t % (60 / AppState.bpm);
-                    let p = Math.exp(-Math.pow((cycle - 0.15) / 0.02, 2)) * -15;
-                    let q = Math.exp(-Math.pow((cycle - 0.23) / 0.01, 2)) * 10;
-                    let r = Math.exp(-Math.pow((cycle - 0.25) / 0.015, 2)) * -60;
-                    let s = Math.exp(-Math.pow((cycle - 0.28) / 0.01, 2)) * 15;
-                    let t_wave = Math.exp(-Math.pow((cycle - 0.45) / 0.04, 2)) * -20;
-                    
-                    let jitter = AppState.currentState === 'caffeine' ? (Math.random()-0.5)*2 : 0;
-                    y += p + q + r + s + t_wave + jitter;
-                } else {
-                    let lfo = 0;
-                    if (AppState.currentOrgan === 'stomach') lfo = Math.pow((Math.sin(2 * Math.PI * 3 * t) + 1) / 2, 4);
-                    else if (AppState.currentOrgan === 'smallIntestine') lfo = Math.abs(Math.sin(2*Math.PI*8*t) * Math.sin(2*Math.PI*3.3*t));
-                    else if (AppState.currentOrgan === 'largeIntestine') lfo = Math.pow((Math.sin(2 * Math.PI * 0.5 * t) + 1) / 2, 2);
-                    else lfo = 0.2; 
-
-                    let noise = (Math.random() - 0.5) * 60;
-                    let power = AppState.currentState === 'sugar' ? lfo * 0.5 : (AppState.currentState === 'highFiber' ? lfo * 1.5 : lfo);
-                    y += noise * power;
-                }
-
-                if (x === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
-            }
-            ctx.stroke();
+        if (trackInterval) {
+            clearInterval(trackInterval);
+            trackInterval = null;
+            document.getElementById('btn-track').classList.remove('active');
         }
+    }
+    updateAudio();
+}
 
-        /**
-         * Three.js 防彈級 3D 渲染引擎 (無 ViewOffset, 無 CapsuleGeometry)
-         */
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.set(0, 0, 10);
+function selectOrgan(organ, fromTracker = false) {
+    if (!fromTracker && trackInterval) {
+        clearInterval(trackInterval);
+        trackInterval = null;
+        document.getElementById('btn-track').classList.remove('active');
+    }
+    
+    currentOrgan = organ;
+    const orgBtns = ['heart', 'stomach', 'smallIntestine', 'largeIntestine', 'spleen', 'kidneys'];
+    orgBtns.forEach(o => document.getElementById('org-' + o).classList.remove('active'));
+    document.getElementById('org-' + organ).classList.add('active');
+    
+    updateAudio();
+}
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setClearColor(0x000000, 0); 
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
+function setExp(exp) {
+    currentExpState = exp;
+    const expBtns = ['normal', 'caffeine', 'fiber', 'sugar'];
+    expBtns.forEach(e => document.getElementById('exp-' + e).classList.remove('active'));
+    document.getElementById('exp-' + exp).classList.add('active');
+    updateAudio();
+}
 
-        // 燈光
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
-        scene.add(ambientLight);
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
-        hemiLight.position.set(0, 10, 0);
-        scene.add(hemiLight);
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-        dirLight.position.set(5, 5, 5);
-        scene.add(dirLight);
-
-        // 核心群組 - 向右推移完美置中 (x = 1.5)
-        const girlGroup = new THREE.Group();
-        girlGroup.position.x = 1.5; 
-        girlGroup.position.y = 0;
-        scene.add(girlGroup);
-
-        // 基本材質設定
-        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdcb3, roughness: 0.4 });
-        const hairMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.8 }); // 棕色短髮
-        const blackMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
-        const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const blushMat = new THREE.MeshStandardMaterial({ color: 0xff88aa, transparent: true, opacity: 0.6, depthWrite: false });
-        const mouthMat = new THREE.MeshBasicMaterial({ color: 0xcc3333 });
-        
-        // 衣服透視材質 (安全版本，保證不隱形)
-        const hoodieMat = new THREE.MeshStandardMaterial({ 
-            color: 0xaaccff, // 淺藍色連帽衫
-            transparent: true, 
-            opacity: 0.5,
-            roughness: 0.2,
-            depthWrite: false 
-        });
-        const shortsMat = new THREE.MeshStandardMaterial({ color: 0xe3d5c8 }); // 米色短褲
-        const shoeMat = new THREE.MeshStandardMaterial({ color: 0xffffff }); // 運動鞋
-
-        // --- 建立嚴格 1:1.2 頭身比 Q 版女孩 ---
-        
-        // 1. 頭部 (巨大圓球)
-        const head = new THREE.Mesh(new THREE.SphereGeometry(1.2, 32, 32), skinMat);
-        head.position.y = 1.6;
-        girlGroup.add(head);
-
-        // 頭髮 (蓬鬆短髮)
-        const hair = new THREE.Mesh(new THREE.SphereGeometry(1.25, 32, 32, 0, Math.PI*2, 0, Math.PI/1.7), hairMat);
-        hair.position.y = 1.62;
-        girlGroup.add(hair);
-        const bang = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.8, 16), hairMat);
-        bang.rotation.z = Math.PI / 2;
-        bang.position.set(0, 2.5, 1.0);
-        girlGroup.add(bang);
-
-        // 臉部五官 (低重心法則)
-        const faceGroup = new THREE.Group();
-        head.add(faceGroup); 
-        
-        // 眼睛 (大、黑、位置低)
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), blackMat);
-        eyeL.position.set(-0.45, -0.3, 1.05);
-        faceGroup.add(eyeL);
-        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), blackMat);
-        eyeR.position.set(0.45, -0.3, 1.05);
-        faceGroup.add(eyeR);
-        
-        // 眼部高光
-        const hlL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), whiteMat);
-        hlL.position.set(-0.4, -0.22, 1.2);
-        faceGroup.add(hlL);
-        const hlR = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), whiteMat);
-        hlR.position.set(0.5, -0.22, 1.2);
-        faceGroup.add(hlR);
-
-        // 腮紅 (靈魂重點 - 粉紅色壓扁圓柱體)
-        const blushGeo = new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16);
-        const blushL = new THREE.Mesh(blushGeo, blushMat);
-        blushL.rotation.x = Math.PI / 2;
-        blushL.position.set(-0.65, -0.5, 1.02);
-        faceGroup.add(blushL);
-        const blushR = new THREE.Mesh(blushGeo, blushMat);
-        blushR.rotation.x = Math.PI / 2;
-        blushR.position.set(0.65, -0.5, 1.02);
-        faceGroup.add(blushR);
-
-        // 嘴巴 (小巧)
-        const mouth = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.05, 16), mouthMat);
-        mouth.rotation.x = Math.PI / 2;
-        mouth.position.set(0, -0.7, 1.05);
-        faceGroup.add(mouth);
-
-        // 眉毛
-        const browGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8);
-        const browL = new THREE.Mesh(browGeo, hairMat);
-        browL.rotation.z = Math.PI / 2;
-        browL.position.set(-0.45, 0.0, 1.15);
-        faceGroup.add(browL);
-        const browR = new THREE.Mesh(browGeo, hairMat);
-        browR.rotation.z = Math.PI / 2;
-        browR.position.set(0.45, 0.0, 1.15);
-        faceGroup.add(browR);
-
-        // 2. 軀幹 (極短圓柱體 + 連帽衫)
-        const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.95, 1.4, 32), hoodieMat);
-        torso.position.y = 0.2;
-        girlGroup.add(torso);
-
-        // 可愛小熊圖案 (在衣服上)
-        const bearGroup = new THREE.Group();
-        const bearFace = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), hairMat);
-        bearFace.scale.z = 0.2;
-        const bearEarL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), hairMat);
-        bearEarL.position.set(-0.15, 0.15, 0);
-        bearEarL.scale.z = 0.2;
-        const bearEarR = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), hairMat);
-        bearEarR.position.set(0.15, 0.15, 0);
-        bearEarR.scale.z = 0.2;
-        bearGroup.add(bearFace, bearEarL, bearEarR);
-        bearGroup.position.set(0, 0.3, 0.9);
-        torso.add(bearGroup);
-
-        // 短褲
-        const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.4, 32), shortsMat);
-        shorts.position.y = -0.7;
-        girlGroup.add(shorts);
-
-        // 3. 四肢 (短胖笨拙，嚴禁使用 CapsuleGeometry)
-        const armGeo = new THREE.CylinderGeometry(0.25, 0.2, 0.8, 16);
-        const armLGroup = new THREE.Group();
-        armLGroup.position.set(-1.1, 0.6, 0);
-        const armL = new THREE.Mesh(armGeo, skinMat);
-        armL.position.y = -0.4;
-        armLGroup.add(armL);
-        const handL = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), skinMat); // 圓圓小手
-        handL.position.y = -0.8;
-        armLGroup.add(handL);
-        armLGroup.rotation.z = 0.3;
-        girlGroup.add(armLGroup);
-
-        const armRGroup = new THREE.Group();
-        armRGroup.position.set(1.1, 0.6, 0);
-        const armR = new THREE.Mesh(armGeo, skinMat);
-        armR.position.y = -0.4;
-        armRGroup.add(armR);
-        const handR = new THREE.Mesh(new THREE.SphereGeometry(0.25, 16, 16), skinMat);
-        handR.position.y = -0.8;
-        armRGroup.add(handR);
-        armRGroup.rotation.z = -0.3;
-        girlGroup.add(armRGroup);
-
-        const legGeo = new THREE.CylinderGeometry(0.25, 0.22, 0.7, 16);
-        const legL = new THREE.Mesh(legGeo, skinMat);
-        legL.position.set(-0.4, -1.2, 0);
-        girlGroup.add(legL);
-        const shoeL = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), shoeMat); // 運動鞋小腳
-        shoeL.scale.y = 0.7;
-        shoeL.scale.z = 1.3;
-        shoeL.position.set(-0.4, -1.6, 0.1);
-        girlGroup.add(shoeL);
-
-        const legR = new THREE.Mesh(legGeo, skinMat);
-        legR.position.set(0.4, -1.2, 0);
-        girlGroup.add(legR);
-        const shoeR = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), shoeMat);
-        shoeR.scale.y = 0.7;
-        shoeR.scale.z = 1.3;
-        shoeR.position.set(0.4, -1.6, 0.1);
-        girlGroup.add(shoeR);
-
-        // --- 內部器官擴充設定 ---
-        const organs = {};
-        
-        function createOrgan(geo, colorHex, name, y, z, x=0, rotX=0) {
-            const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.3 });
-            const mesh = new THREE.Mesh(geo, mat);
-            mesh.position.set(x, y, z);
-            if(rotX) mesh.rotation.x = rotX;
-            mesh.userData = { name: name, baseColor: colorHex };
-            torso.add(mesh); // 加在透明透視服裝內
-            return mesh;
+function startTracking() {
+    if(trackInterval) {
+        clearInterval(trackInterval);
+        trackInterval = null;
+        document.getElementById('btn-track').classList.remove('active');
+        return;
+    }
+    
+    if(!isPlaying) togglePlay();
+    document.getElementById('btn-track').classList.add('active');
+    
+    const sequence = ['stomach', 'smallIntestine', 'largeIntestine'];
+    let idx = 0;
+    selectOrgan(sequence[idx], true);
+    
+    trackInterval = setInterval(() => {
+        idx++;
+        if(idx >= sequence.length) {
+            clearInterval(trackInterval);
+            trackInterval = null;
+            document.getElementById('btn-track').classList.remove('active');
+        } else {
+            selectOrgan(sequence[idx], true);
         }
+    }, 3000);
+}
 
-        // 🫀 心臟
-        organs.heart = createOrgan(new THREE.SphereGeometry(0.25, 16, 16), OrganColors.heart, 'heart', 0.3, 0.3, -0.1);
-        
-        // 🟢 胃部
-        const stomGeo = new THREE.SphereGeometry(0.25, 16, 16);
-        stomGeo.scale(1.2, 0.8, 0.8);
-        organs.stomach = createOrgan(stomGeo, OrganColors.stomach, 'stomach', -0.1, 0.2, 0.1);
-        
-        // 🟡 小腸 (交錯環狀體)
-        const siGroup = new THREE.Group();
-        const siMat = new THREE.MeshBasicMaterial({ color: OrganColors.smallIntestine, transparent: true, opacity: 0.3 });
-        for(let i=0; i<3; i++) {
-            let t = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.08, 8, 16), siMat);
-            t.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-            t.position.set((Math.random()-0.5)*0.2, (Math.random()-0.5)*0.2, 0);
-            siGroup.add(t);
+/* =======================================================================
+   4. 2D 監視器畫布 (時間軸波形)
+======================================================================== */
+const canvas = document.getElementById('waveCanvas');
+const ctx2d = canvas.getContext('2d');
+const waveData = new Array(200).fill(0);
+
+function updateWaveform(time) {
+    if(!isPlaying) return;
+    
+    let y = 0;
+    if(currentOrgan === 'heart') {
+        let rate = currentExpState === 'caffeine' ? 2.0 : 1.0;
+        let t = (time * rate) % 1;
+        // 模擬 PQRST 波形
+        if (t < 0.1) y = Math.sin(t * Math.PI * 10) * 0.4;
+        else if (t > 0.15 && t < 0.2) y = -Math.sin((t-0.15) * Math.PI * 20) * 0.25;
+        else if (t >= 0.2 && t < 0.25) y = Math.sin((t-0.2) * Math.PI * 20) * 1.5;
+        else if (t >= 0.25 && t < 0.3) y = -Math.sin((t-0.25) * Math.PI * 20) * 0.4;
+        else if (t > 0.4 && t < 0.6) y = Math.sin((t-0.4) * Math.PI * 5) * 0.3;
+    } else if (currentOrgan === 'stomach') {
+        let noise = Math.random() * 2 - 1;
+        let env = Math.sin(time * 3 * Math.PI);
+        if(currentExpState === 'sugar') env = Math.random() > 0.85 ? 1 : 0; // 空洞斷續
+        else if(currentExpState === 'fiber') env = Math.sin(time * 3 * Math.PI) * 1.5; // 飽滿
+        y = noise * env * 0.7;
+    } else if (currentOrgan === 'smallIntestine') {
+        let noise = Math.random() * 2 - 1;
+        let freq = currentExpState === 'sugar' ? 2 : 8;
+        y = noise * Math.sin(time * freq * Math.PI) * 0.5;
+    } else if (currentOrgan === 'largeIntestine') {
+        let noise = Math.random() * 2 - 1;
+        let freq = currentExpState === 'fiber' ? 1.2 : 0.5;
+        y = noise * Math.sin(time * freq * Math.PI) * 0.4;
+    } else if (currentOrgan === 'spleen' || currentOrgan === 'kidneys') {
+        y = (Math.random() * 2 - 1) * 0.15; // 穩定的微弱嗡嗡聲
+    }
+
+    waveData.push(y);
+    waveData.shift();
+
+    // 畫布背景
+    ctx2d.fillStyle = currentOrgan === 'heart' ? '#ffffff' : '#0f172a';
+    ctx2d.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 心跳專屬網格
+    if(currentOrgan === 'heart') {
+        ctx2d.strokeStyle = '#e2e8f0';
+        ctx2d.lineWidth = 1;
+        for(let i=0; i<canvas.width; i+=20) { ctx2d.beginPath(); ctx2d.moveTo(i,0); ctx2d.lineTo(i,canvas.height); ctx2d.stroke(); }
+        for(let i=0; i<canvas.height; i+=20) { ctx2d.beginPath(); ctx2d.moveTo(0,i); ctx2d.lineTo(canvas.width,i); ctx2d.stroke(); }
+    }
+
+    // 畫線
+    ctx2d.beginPath();
+    ctx2d.strokeStyle = currentOrgan === 'heart' ? '#e11d48' : 
+                        currentOrgan === 'stomach' ? '#22c55e' :
+                        currentOrgan === 'smallIntestine' ? '#f59e0b' :
+                        currentOrgan === 'largeIntestine' ? '#b45309' :
+                        currentOrgan === 'spleen' ? '#d946ef' : '#3b82f6';
+    ctx2d.lineWidth = 2.5;
+    
+    for(let i=0; i<waveData.length; i++) {
+        let px = (i / waveData.length) * canvas.width;
+        let py = canvas.height/2 - waveData[i] * 35;
+        if(i===0) ctx2d.moveTo(px, py);
+        else ctx2d.lineTo(px, py);
+    }
+    ctx2d.stroke();
+}
+
+/* =======================================================================
+   5. Three.js 3D 渲染與防彈級建模
+======================================================================== */
+const container = document.getElementById('webgl-container');
+const scene = new THREE.Scene();
+
+// 攝影機設定
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(0, 0, 7);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+container.appendChild(renderer.domElement);
+
+// 光源設定
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+dirLight.position.set(5, 5, 5);
+scene.add(dirLight);
+
+// 核心防呆修正：將模型實體放入 Group 並向右推移完美置中，不使用 ViewOffset
+const girlGroup = new THREE.Group();
+girlGroup.position.x = 1.5; 
+scene.add(girlGroup);
+
+// 材質庫 (嚴格不使用 transmission，透視衣服採用 depthWrite: false)
+const matSkin = new THREE.MeshStandardMaterial({ color: 0xffe0bd, roughness: 0.4 });
+const matHair = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.8 });
+const matHoodie = new THREE.MeshStandardMaterial({ color: 0x87ceeb, transparent: true, opacity: 0.5, depthWrite: false }); // 淺藍色連帽衫
+const matShorts = new THREE.MeshStandardMaterial({ color: 0xf5f5dc, roughness: 0.7 }); // 米色短褲
+const matBlack = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+// --- 嚴格 1:1.2 頭身比 Q版人物生成 (只使用 Sphere 與 Cylinder) ---
+// 頭部 (極大)
+const head = new THREE.Mesh(new THREE.SphereGeometry(1.1, 32, 32), matSkin);
+head.position.y = 1.2;
+girlGroup.add(head);
+
+// 蓬鬆棕色短髮
+const hair = new THREE.Mesh(new THREE.SphereGeometry(1.15, 32, 32, 0, Math.PI*2, 0, Math.PI/1.8), matHair);
+hair.position.y = 1.22;
+girlGroup.add(hair);
+const hairBunL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), matHair);
+hairBunL.position.set(-1.0, 1.2, 0);
+const hairBunR = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), matHair);
+hairBunR.position.set(1.0, 1.2, 0);
+girlGroup.add(hairBunL, hairBunR); // 增加短髮蓬鬆可愛感
+
+// 五官 (低重心)
+const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), matBlack);
+eyeL.position.set(-0.4, 0.9, 1.0);
+const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), matBlack);
+eyeR.position.set(0.4, 0.9, 1.0);
+girlGroup.add(eyeL, eyeR);
+
+const blushGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.05, 16);
+const blushMat = new THREE.MeshBasicMaterial({ color: 0xff88aa, transparent: true, opacity: 0.6 });
+const blushL = new THREE.Mesh(blushGeo, blushMat);
+blushL.rotation.x = Math.PI/2;
+blushL.position.set(-0.55, 0.7, 0.95);
+const blushR = new THREE.Mesh(blushGeo, blushMat);
+blushR.rotation.x = Math.PI/2;
+blushR.position.set(0.55, 0.7, 0.95);
+girlGroup.add(blushL, blushR);
+
+const mouth = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), new THREE.MeshBasicMaterial({color: 0xcc0000}));
+mouth.position.set(0, 0.6, 1.05);
+girlGroup.add(mouth);
+
+const browGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.25, 8);
+const browL = new THREE.Mesh(browGeo, matHair);
+browL.rotation.z = Math.PI/2;
+browL.position.set(-0.4, 1.15, 1.05);
+const browR = browL.clone();
+browR.position.set(0.4, 1.15, 1.05);
+girlGroup.add(browL, browR);
+
+// 軀幹 (寬鬆連帽衫，極短)
+const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.8, 1.3, 32), matHoodie);
+torso.position.y = -0.1;
+girlGroup.add(torso);
+
+// 小熊圖案 (可愛細節)
+const bearLogo = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 16), matHair);
+bearLogo.rotation.x = Math.PI/2;
+bearLogo.position.set(0, 0.15, 0.75);
+girlGroup.add(bearLogo);
+
+// 米色短褲
+const shorts = new THREE.Mesh(new THREE.CylinderGeometry(0.78, 0.8, 0.4, 32), matShorts);
+shorts.position.y = -0.95;
+girlGroup.add(shorts);
+
+// 四肢 (短胖如布偶)
+const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.9, 16), matSkin);
+armL.position.set(-0.9, -0.1, 0);
+armL.rotation.z = Math.PI/6;
+const handL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), matSkin);
+handL.position.set(0, -0.45, 0);
+armL.add(handL);
+girlGroup.add(armL);
+
+const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.9, 16), matSkin);
+armR.position.set(0.9, -0.1, 0);
+armR.rotation.z = -Math.PI/6;
+const handR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), matSkin);
+handR.position.set(0, -0.45, 0);
+armR.add(handR);
+girlGroup.add(armR);
+
+const legL = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.7, 16), matSkin);
+legL.position.set(-0.35, -1.5, 0);
+const shoeL = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), matWhite);
+shoeL.position.set(0, -0.35, 0.1);
+legL.add(shoeL);
+girlGroup.add(legL);
+
+const legR = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.7, 16), matSkin);
+legR.position.set(0.35, -1.5, 0);
+const shoeR = new THREE.Mesh(new THREE.SphereGeometry(0.3, 16, 16), matWhite);
+shoeR.position.set(0, -0.35, 0.1);
+legR.add(shoeR);
+girlGroup.add(legR);
+
+// --- 內部器官系統 ---
+const organs = {};
+function createOrgan(name, geo, color, pos) {
+    const mat = new THREE.MeshStandardMaterial({
+        color: color, emissive: color, emissiveIntensity: 0.1, 
+        transparent: true, opacity: 0.95
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    mesh.userData = { name: name, baseColor: color };
+    girlGroup.add(mesh);
+    organs[name] = mesh;
+    return mesh;
+}
+
+// 根據需求建立各種器官形狀
+createOrgan('heart', new THREE.SphereGeometry(0.2, 32, 32), 0xff0000, new THREE.Vector3(0.15, 0.3, 0.15));
+createOrgan('stomach', new THREE.SphereGeometry(0.22, 32, 32), 0x00ff00, new THREE.Vector3(-0.15, 0.0, 0.15));
+
+// 小腸 (交錯 Torus)
+const siGeo = new THREE.TorusGeometry(0.18, 0.08, 16, 32);
+createOrgan('smallIntestine', siGeo, 0xffaa00, new THREE.Vector3(0, -0.35, 0.15));
+const si2 = new THREE.Mesh(siGeo, organs['smallIntestine'].material);
+si2.position.set(0.05, 0.05, 0);
+si2.rotation.x = Math.PI/3;
+organs['smallIntestine'].add(si2);
+const si3 = new THREE.Mesh(siGeo, organs['smallIntestine'].material);
+si3.position.set(-0.05, -0.05, 0);
+si3.rotation.y = Math.PI/3;
+organs['smallIntestine'].add(si3);
+
+// 大腸 (外圍粗管)
+const liGeo = new THREE.TorusGeometry(0.35, 0.12, 16, 32);
+createOrgan('largeIntestine', liGeo, 0x556b2f, new THREE.Vector3(0, -0.35, 0.1));
+
+// 脾臟
+createOrgan('spleen', new THREE.SphereGeometry(0.1, 16, 16), 0x800080, new THREE.Vector3(-0.35, 0.05, 0.1));
+organs['spleen'].scale.y = 0.5;
+
+// 腎臟 (2顆)
+createOrgan('kidneys', new THREE.SphereGeometry(0.12, 16, 16), 0x0055ff, new THREE.Vector3(-0.25, -0.2, -0.2));
+const kid2 = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), organs['kidneys'].material);
+kid2.position.set(0.5, 0, 0); 
+organs['kidneys'].add(kid2);
+
+
+// --- 互動射線檢測 ---
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+window.addEventListener('click', (e) => {
+    if (e.clientX < 380) return; // 點擊 UI 不觸發 3D
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(Object.values(organs), false);
+    if(intersects.length > 0) {
+        selectOrgan(intersects[0].object.userData.name);
+    }
+});
+
+
+/* =======================================================================
+   6. 動態生理反射與渲染迴圈
+======================================================================== */
+const clock = new THREE.Clock();
+
+function update3DModel(time) {
+    // 重置所有器官發光與縮放
+    for(let key in organs) {
+        organs[key].material.emissiveIntensity = 0.1;
+        organs[key].scale.set(1, 1, 1);
+        if(key === 'stomach') organs[key].material.emissive.setHex(0x00ff00); // 預設綠光
+    }
+    
+    // 重置臉部表情與姿勢
+    mouth.scale.set(1, 1, 1);
+    mouth.position.set(0, 0.6, 1.05);
+    browL.rotation.z = Math.PI/2;
+    browR.rotation.z = Math.PI/2;
+    browL.position.y = 1.15;
+    browR.position.y = 1.15;
+    eyeL.scale.set(1, 1, 1);
+    eyeR.scale.set(1, 1, 1);
+    head.rotation.z = 0;
+    girlGroup.position.x = 1.5;
+    girlGroup.position.y = 0;
+    armL.rotation.z = Math.PI/6;
+    armR.rotation.z = -Math.PI/6;
+
+    if(!isPlaying) return;
+
+    // 聽覺與視覺解耦：只有被選中的器官會發光與動畫
+    if(currentOrgan === 'heart') {
+        let rate = currentExpState === 'caffeine' ? 2 : 1;
+        let scale = 1 + 0.2 * Math.sin(time * 2 * Math.PI * rate);
+        organs.heart.scale.set(scale, scale, scale);
+        organs.heart.material.emissiveIntensity = 0.9;
+    } 
+    else if (currentOrgan === 'stomach') {
+        let scale = 1 + 0.1 * Math.sin(time * 3 * 2 * Math.PI);
+        organs.stomach.scale.set(scale, scale, scale);
+        organs.stomach.material.emissiveIntensity = 0.8;
+        if(currentExpState === 'sugar') organs.stomach.material.emissive.setHex(0xff0000); // 警告紅光
+    } 
+    else if (currentOrgan === 'smallIntestine') {
+        organs.smallIntestine.material.emissiveIntensity = 0.7 + 0.3 * Math.sin(time * 8);
+    } 
+    else if (currentOrgan === 'largeIntestine') {
+        organs.largeIntestine.material.emissiveIntensity = 0.7 + 0.3 * Math.sin(time * 0.5);
+    } 
+    else if (currentOrgan === 'spleen') {
+        organs.spleen.material.emissiveIntensity = 0.6 + 0.2 * Math.sin(time * 1);
+    } 
+    else if (currentOrgan === 'kidneys') {
+        organs.kidneys.material.emissiveIntensity = 0.6 + 0.2 * Math.sin(time * 1);
+    }
+
+    // 狀態連動 (表情與神經反射)
+    if (currentExpState === 'caffeine') {
+        // 驚恐 O 型嘴，挑眉
+        mouth.scale.set(1.5, 1.5, 1.5);
+        browL.rotation.z = Math.PI/3;
+        browR.rotation.z = -Math.PI/3;
+        browL.position.y = 1.2;
+        browR.position.y = 1.2;
+        // 舉手
+        armL.rotation.z = Math.PI/2;
+        armR.rotation.z = -Math.PI/2;
+        // 發抖 Jitter
+        girlGroup.position.x = 1.5 + (Math.random() - 0.5) * 0.03;
+        girlGroup.position.y = (Math.random() - 0.5) * 0.03;
+    } 
+    else if (currentExpState === 'fiber') {
+        // 彎月笑眼
+        eyeL.scale.set(1, 0.2, 1);
+        eyeR.scale.set(1, 0.2, 1);
+        mouth.scale.set(1.8, 0.2, 1);
+        mouth.position.y = 0.65;
+        head.rotation.z = Math.sin(time * 2) * 0.1; // 開心晃腦
+        if(currentOrgan === 'smallIntestine' || currentOrgan === 'largeIntestine') {
+            organs[currentOrgan].material.emissiveIntensity = 1.0; // 明亮健康光芒
         }
-        siGroup.position.set(0, -0.4, 0.2);
-        siGroup.userData = { name: 'smallIntestine', baseColor: OrganColors.smallIntestine };
-        torso.add(siGroup);
-        organs.smallIntestine = siGroup;
-        
-        // 🟤 大腸 (外圍粗管體)
-        const liGeo = new THREE.TorusGeometry(0.35, 0.1, 12, 16, Math.PI * 1.5);
-        organs.largeIntestine = createOrgan(liGeo, OrganColors.largeIntestine, 'largeIntestine', -0.35, 0.15, 0, Math.PI);
-        
-        // 🟣 脾臟
-        const spGeo = new THREE.SphereGeometry(0.12, 16, 16);
-        spGeo.scale(1, 0.5, 0.8);
-        organs.spleen = createOrgan(spGeo, OrganColors.spleen, 'spleen', -0.05, 0.1, 0.4);
-        
-        // 🔵 腎臟 (背後兩顆)
-        const kiGroup = new THREE.Group();
-        const kiMat = new THREE.MeshBasicMaterial({ color: OrganColors.kidneys, transparent: true, opacity: 0.3 });
-        const kL = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), kiMat); kL.scale.y = 1.5; kL.position.set(-0.25, 0, -0.2);
-        const kR = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), kiMat); kR.scale.y = 1.5; kR.position.set(0.25, 0, -0.2);
-        kiGroup.add(kL, kR);
-        kiGroup.position.set(0, -0.2, -0.1);
-        kiGroup.userData = { name: 'kidneys', baseColor: OrganColors.kidneys };
-        torso.add(kiGroup);
-        organs.kidneys = kiGroup;
-
-        // 互動系統：Raycaster 射線檢測
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let clickableObjects = [organs.heart, organs.stomach, ...siGroup.children, organs.largeIntestine, organs.spleen, ...kiGroup.children];
-
-        window.addEventListener('click', (e) => {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(clickableObjects);
-            
-            if (intersects.length > 0) {
-                let obj = intersects[0].object;
-                while (!obj.userData.name && obj.parent) obj = obj.parent;
-                if (obj.userData.name) {
-                    setOrgan(obj.userData.name);
-                }
-            }
-        });
-
-        // 顏色高亮更新邏輯
-        function update3DHighlights() {
-            Object.values(organs).forEach(org => {
-                let isTarget = org.userData.name === AppState.currentOrgan;
-                let color = org.userData.baseColor;
-                
-                // 生理狀態連動：暈糖胃部警告紅光
-                if (AppState.currentState === 'sugar' && (org.userData.name === 'stomach' || org.userData.name === 'smallIntestine' || org.userData.name === 'largeIntestine')) {
-                     color = 0xff0000;
-                }
-
-                const applyMat = (mesh) => {
-                    mesh.material.color.setHex(color);
-                    mesh.material.opacity = isTarget ? 0.95 : 0.15; // 高對比凸顯
-                };
-
-                if(org.type === 'Group') org.children.forEach(applyMat);
-                else applyMat(org);
-            });
+    } 
+    else if (currentExpState === 'sugar') {
+        // 痛苦抽搐
+        mouth.scale.set(1.5, 0.2, 1);
+        mouth.position.y = 0.55;
+        browL.rotation.z = -Math.PI/6;
+        browR.rotation.z = Math.PI/6;
+        if(Math.random() > 0.92) {
+            eyeL.scale.y = 0.1; // 抽搐
         }
+    }
+}
 
-        // 3D 渲染動畫迴圈
-        let baseTime = 0;
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now() / 1000;
-            
-            // 基礎自然搖晃
-            girlGroup.rotation.y = Math.sin(time * 0.5) * 0.1;
+function animate() {
+    requestAnimationFrame(animate);
+    const time = clock.getElapsedTime();
+    update3DModel(time);
+    updateWaveform(time);
+    renderer.render(scene, camera);
+}
 
-            // 生理反射與狀態連動邏輯
-            if (AppState.currentState === 'caffeine' && AppState.isPlaying) {
-                // 咖啡因：發抖 (Jitter)、睜大眼、O型嘴、舉雙手
-                girlGroup.position.x = 1.5 + (Math.random() - 0.5) * 0.05;
-                girlGroup.position.y = (Math.random() - 0.5) * 0.05;
-                eyeL.scale.set(1.4, 1.4, 1.4); eyeR.scale.set(1.4, 1.4, 1.4);
-                mouth.scale.set(2.5, 2.5, 2.5);
-                browL.position.y = 0.1; browL.rotation.z = Math.PI/2 - 0.2;
-                browR.position.y = 0.1; browR.rotation.z = Math.PI/2 + 0.2;
-                armLGroup.rotation.z = 0.9; armRGroup.rotation.z = -0.9; 
-            } else if (AppState.currentState === 'sugar' && AppState.isPlaying) {
-                // 精緻糖：皺眉痛苦、無力歪頭
-                girlGroup.position.x = 1.5; girlGroup.position.y = 0;
-                head.rotation.z = 0.15; 
-                eyeL.scale.set(1, 0.3, 1); eyeR.scale.set(1, 0.3, 1);
-                mouth.scale.set(1, 0.2, 1);
-                browL.position.y = -0.05; browL.rotation.z = Math.PI/2 + 0.3; // 皺眉
-                browR.position.y = -0.05; browR.rotation.z = Math.PI/2 - 0.3;
-                armLGroup.rotation.z = 0.1; armRGroup.rotation.z = -0.1; 
-            } else if (AppState.currentState === 'highFiber' && AppState.isPlaying) {
-                // 高纖維：彎月笑眼、開心搖晃
-                girlGroup.position.x = 1.5; girlGroup.position.y = 0;
-                head.rotation.z = Math.sin(time * 3) * 0.1; 
-                eyeL.scale.set(1, 0.1, 1); eyeL.position.y = -0.25; 
-                eyeR.scale.set(1, 0.1, 1); eyeR.position.y = -0.25;
-                mouth.scale.set(2.5, 0.5, 1);
-                browL.position.y = 0; browL.rotation.z = Math.PI/2;
-                browR.position.y = 0; browR.rotation.z = Math.PI/2;
-                armLGroup.rotation.z = 0.4; armRGroup.rotation.z = -0.4;
-            } else {
-                // 恢復一般狀態
-                girlGroup.position.x = 1.5; girlGroup.position.y = 0;
-                head.rotation.z = 0;
-                eyeL.scale.set(1, 1, 1); eyeL.position.y = -0.3;
-                eyeR.scale.set(1, 1, 1); eyeR.position.y = -0.3;
-                mouth.scale.set(1, 1, 1);
-                browL.position.y = 0; browL.rotation.z = Math.PI/2;
-                browR.position.y = 0; browR.rotation.z = Math.PI/2;
-                armLGroup.rotation.z = 0.3; armRGroup.rotation.z = -0.3;
-            }
+// 響應式佈局
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 
-            // 視覺與聽覺解耦：發光器官獨立跳動
-            if (AppState.isPlaying) {
-                let cycle = time % (60 / AppState.bpm);
-                
-                Object.values(organs).forEach(org => {
-                    if (org.type === 'Group') org.scale.set(1,1,1);
-                    else org.scale.set(1,1,1);
-                });
-
-                const activeOrg = organs[AppState.currentOrgan];
-                if (AppState.currentOrgan === 'heart') {
-                    let scale = 1.0;
-                    if (cycle < 0.2) scale = 1.0 + Math.sin(cycle * Math.PI * 5) * 0.3;
-                    else if (cycle > 0.25 && cycle < 0.45) scale = 1.0 + Math.sin((cycle-0.25) * Math.PI * 5) * 0.2;
-                    activeOrg.scale.set(scale, scale, scale);
-                } else if (AppState.currentOrgan === 'stomach') {
-                    let lfo = (Math.sin(2 * Math.PI * 3 * time) + 1) / 2;
-                    let scale = 1.0 + lfo * (AppState.currentState === 'sugar' ? 0.4 : 0.15); 
-                    activeOrg.scale.set(scale, scale, scale);
-                } else if (AppState.currentOrgan === 'smallIntestine') {
-                    let lfo = Math.abs(Math.sin(2*Math.PI*8*time) * Math.sin(2*Math.PI*3.3*time));
-                    let scale = 1.0 + lfo * 0.25;
-                    activeOrg.scale.set(scale, scale, scale);
-                } else if (AppState.currentOrgan === 'largeIntestine') {
-                    let lfo = (Math.sin(2 * Math.PI * 0.5 * time) + 1) / 2;
-                    let scale = 1.0 + lfo * 0.15;
-                    activeOrg.scale.set(scale, scale, scale);
-                }
-            }
-
-            renderer.render(scene, camera);
-        }
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        /**
-         * UI 互動與教案控制
-         */
-        function setOrgan(organName) {
-            AppState.currentOrgan = organName;
-            document.querySelectorAll('.organ-btn').forEach(b => b.classList.remove('active', 'border-white'));
-            document.querySelector(`[data-organ="${organName}"]`).classList.add('active', 'border-white');
-            update3DHighlights();
-            if (AppState.isPlaying) playSound();
-        }
-
-        function setState(stateName) {
-            AppState.currentState = stateName;
-            document.querySelectorAll('.state-btn').forEach(b => b.classList.remove('active', 'border-white'));
-            document.querySelector(`[data-state="${stateName}"]`).classList.add('active', 'border-white');
-            update3DHighlights();
-            if (AppState.isPlaying) playSound();
-        }
-
-        document.querySelectorAll('.organ-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                if (AppState.isAutoRouting) return; 
-                setOrgan(e.target.dataset.organ);
-            });
-        });
-
-        document.querySelectorAll('.state-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                setState(e.target.dataset.state);
-            });
-        });
-
-        document.getElementById('btn-play').addEventListener('click', () => {
-            AppState.isPlaying = true;
-            document.getElementById('btn-play').classList.add('active', 'ring', 'ring-white');
-            document.getElementById('btn-stop').classList.remove('active', 'ring', 'ring-white');
-            playSound();
-        });
-
-        document.getElementById('btn-stop').addEventListener('click', () => {
-            AppState.isPlaying = false;
-            AppState.isAutoRouting = false;
-            document.getElementById('btn-stop').classList.add('active', 'ring', 'ring-white');
-            document.getElementById('btn-play').classList.remove('active', 'ring', 'ring-white');
-            stopSound();
-        });
-
-        // 教案二：營養去哪了 (自動路徑切換)
-        document.getElementById('btn-route').addEventListener('click', () => {
-            if (AppState.isAutoRouting) return;
-            AppState.isAutoRouting = true;
-            AppState.isPlaying = true;
-            document.getElementById('btn-play').classList.add('active', 'ring', 'ring-white');
-            document.getElementById('btn-stop').classList.remove('active', 'ring', 'ring-white');
-            
-            setOrgan('stomach');
-            setTimeout(() => {
-                if(!AppState.isAutoRouting) return;
-                setOrgan('smallIntestine');
-                setTimeout(() => {
-                    if(!AppState.isAutoRouting) return;
-                    setOrgan('largeIntestine');
-                    setTimeout(() => {
-                        AppState.isAutoRouting = false;
-                    }, 3000);
-                }, 3000);
-            }, 3000);
-        });
-
-        // 初始化
-        update3DHighlights();
-        drawWaveform();
-        animate();
-
-    </script>
+// 啟動迴圈
+animate();
+</script>
 </body>
 </html>
