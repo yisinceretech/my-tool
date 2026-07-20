@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Little Body Detective - 人體器官教學應用</title>
+    <title>人體小偵探 - 器官教學互動應用</title>
     <style>
         /* ================= 核心重置與版面佈局 ================= */
         body {
@@ -53,11 +53,11 @@
 
         h1 {
             margin: 0;
-            font-size: 22px;
+            font-size: 24px;
             text-align: center;
             color: #add8e6;
             text-shadow: 0 0 10px rgba(173, 216, 230, 0.5);
-            letter-spacing: 1px;
+            letter-spacing: 2px;
         }
 
         .section {
@@ -68,13 +68,13 @@
         }
 
         .section-title {
-            font-size: 13px;
+            font-size: 14px;
             color: #88aaff;
             margin-bottom: 10px;
-            text-transform: uppercase;
             letter-spacing: 1px;
             border-bottom: 1px solid rgba(136, 170, 255, 0.3);
             padding-bottom: 5px;
+            font-weight: bold;
         }
 
         /* 2D 監視器 */
@@ -122,10 +122,10 @@
         
         /* 狀態提示 */
         #status-text {
-            font-size: 12px;
+            font-size: 13px;
             color: #aaa;
             text-align: center;
-            margin-top: 5px;
+            margin-top: 8px;
         }
 
         /* 鎖定遮罩 (導覽時使用) */
@@ -151,7 +151,7 @@
 
     <div id="ui-panel">
         <div id="ui-blocker">追蹤導覽中...</div>
-        <h1>Little Body Detective</h1>
+        <h1>人體小偵探</h1>
         
         <div class="section">
             <div class="section-title">主控台</div>
@@ -199,7 +199,7 @@
 
     <script>
         /**
-         * Little Body Detective - 核心系統架構
+         * 人體小偵探 - 核心系統架構
          * 整合 Web Audio API, Three.js 3D 渲染, 與 2D Canvas 波形繪製
          */
 
