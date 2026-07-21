@@ -591,4 +591,218 @@ shorts.position.y = -1.0;
 qGirl.add(shorts);
 
 // 3. 四肢 (【絕不使用】CapsuleGeometry，全用 Cylinder)
-const armGeo = new THREE.CylinderGeometry(0.22, 0.2
+const armGeo = new THREE.CylinderGeometry(0.22, 0.22, 1.0, 16);
+const leftArm = new THREE.Mesh(armGeo, skinMat);
+leftArm.position.set(-1.1, -0.3, 0);
+leftArm.rotation.z = Math.PI / 8;
+const rightArm = new THREE.Mesh(armGeo, skinMat);
+rightArm.position.set(1.1, -0.3, 0);
+rightArm.rotation.z = -Math.PI / 8;
+
+const legGeo = new THREE.CylinderGeometry(0.25, 0.25, 1.2, 16);
+const leftLeg = new THREE.Mesh(legGeo, skinMat);
+leftLeg.position.set(-0.4, -1.7, 0);
+const rightLeg = new THREE.Mesh(legGeo, skinMat);
+rightLeg.position.set(0.4, -1.7, 0);
+qGirl.add(leftArm, rightArm, leftLeg, rightLeg);
+
+// ==========================================
+// 內部器官擴充 (具備發光屬性)
+// ==========================================
+const organs = new THREE.Group();
+organs.position.y = -0.3; // 對齊身體
+qGirl.add(organs);
+
+// 心臟
+const meshHeart = new THREE.Mesh(
+    new THREE.SphereGeometry(0.25, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0x880000 })
+);
+meshHeart.position.set(0.2, 0.3, 0.3); 
+meshHeart.userData = { name: 'heart' };
+organs.add(meshHeart);
+
+// 胃部
+const meshStomach = new THREE.Mesh(
+    new THREE.SphereGeometry(0.3, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x00ff00, emissive: 0x008800 })
+);
+meshStomach.position.set(-0.15, 0.05, 0.4); 
+meshStomach.userData = { name: 'stomach' };
+organs.add(meshStomach);
+
+// 小腸 (多個球體組合模擬彎曲)
+const meshSI = new THREE.Group();
+meshSI.userData = { name: 'small_intestine' };
+const siMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0x885500 });
+for(let i=0; i<5; i++){
+    let seg = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 16), siMat);
+    seg.position.set((Math.random()-0.5)*0.5, -0.25 + (Math.random()-0.5)*0.2, 0.4 + Math.random()*0.1);
+    meshSI.add(seg);
+}
+organs.add(meshSI);
+
+// 大腸 (粗管外圍)
+const meshLI = new THREE.Mesh(
+    new THREE.TorusGeometry(0.4, 0.12, 16, 32, Math.PI * 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x654321, emissive: 0x332211 })
+);
+meshLI.rotation.z = Math.PI / 4;
+meshLI.position.set(0, -0.2, 0.3);
+meshLI.userData = { name: 'large_intestine' };
+organs.add(meshLI);
+
+// 脾/腎 (後方小球)
+const meshSK = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 16, 16),
+    new THREE.MeshStandardMaterial({ color: 0x8a2be2, emissive: 0x441188 })
+);
+meshSK.position.set(-0.35, 0.1, -0.2);
+meshSK.userData = { name: 'spleen_kidney' };
+organs.add(meshSK);
+
+const allOrgans = [meshHeart, meshStomach, meshSI, meshLI, meshSK];
+
+// ==========================================
+// 互動射線檢測 (Raycaster)
+// ==========================================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+container.addEventListener('click', (event) => {
+    const rect = container.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    // 遞迴檢測群組內的子物件
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(organs.children, true);
+
+    if (intersects.length > 0) {
+        // 如果點到的是小腸的子節點，需找回父群組的 userData
+        let obj = intersects[0].object;
+        let organName = obj.userData.name;
+        if (!organName && obj.parent && obj.parent.userData.name) {
+            organName = obj.parent.userData.name;
+        }
+        if(organName) setOrgan(organName);
+    }
+});
+
+// ==========================================
+// 核心動畫與生理連動邏輯
+// ==========================================
+const clock = new THREE.Clock();
+
+function animate() {
+    requestAnimationFrame(animate);
+    const elapsedTime = clock.getElapsedTime();
+
+    // 星空緩慢旋轉
+    stars.rotation.y = elapsedTime * 0.02;
+
+    // --- 視覺與聽覺解耦：發光器官未選中時變暗 ---
+    allOrgans.forEach(org => {
+        const isSelected = (org.userData.name === currentOrgan);
+        
+        // 處理 Group (小腸) 與 Mesh 的材質
+        if (org.isGroup) {
+            org.children.forEach(c => {
+                c.material.emissiveIntensity = (isSelected && isRunning) ? 2.0 : 0.3;
+            });
+        } else {
+            org.material.emissiveIntensity = (isSelected && isRunning) ? 2.0 : 0.3;
+        }
+        // 重置縮放
+        org.scale.set(1, 1, 1);
+    });
+
+    // --- 器官跳動連動 ---
+    if (isRunning) {
+        if (currentOrgan === 'heart') {
+            const beatFreq = params.bpm / 60;
+            const s = 1 + 0.15 * Math.abs(Math.sin(elapsedTime * Math.PI * beatFreq * 2));
+            meshHeart.scale.set(s, s, s);
+        } else if (currentOrgan === 'stomach') {
+            const s = 1 + 0.1 * Math.sin(elapsedTime * params.stomachLfo * Math.PI);
+            meshStomach.scale.set(s, s, s);
+        } else if (currentOrgan === 'small_intestine') {
+            const s = 1 + 0.12 * Math.sin(elapsedTime * params.siLfo * Math.PI);
+            meshSI.scale.set(s, s, s);
+        } else if (currentOrgan === 'large_intestine') {
+            const s = 1 + 0.08 * Math.sin(elapsedTime * params.liLfo * Math.PI);
+            meshLI.scale.set(s, s, s);
+        }
+    }
+
+    // --- 對照實驗狀態連動 (生理反射) ---
+    // 預設恢復
+    qGirl.position.y = 0;
+    headGroup.rotation.z = 0;
+    leftEye.scale.set(1, 1, 1);
+    rightEye.scale.set(1, 1, 1);
+    mouth.scale.set(1, 1, 1);
+    leftArm.rotation.z = Math.PI / 8;
+    rightArm.rotation.z = -Math.PI / 8;
+    meshStomach.material.emissive.setHex(0x008800); // 胃預設綠
+    
+    // 正常呼吸
+    body.scale.y = 1 + 0.015 * Math.sin(elapsedTime * 2);
+
+    if (currentState === 'caffeine') {
+        // 心跳極快，女孩表情驚恐(O型嘴/挑眉)，全身微發抖
+        qGirl.position.y = Math.sin(elapsedTime * 40) * 0.03; // 發抖
+        leftEye.scale.set(1.4, 1.4, 1.4);
+        rightEye.scale.set(1.4, 1.4, 1.4);
+        mouth.scale.set(1.5, 2.5, 1.5); // O型嘴
+        leftArm.rotation.z = Math.PI / 2.5; // 舉手
+        rightArm.rotation.z = -Math.PI / 2.5;
+        
+    } else if (currentState === 'fiber') {
+        // 高纖維：小腸與大腸發出明亮光芒，彎月笑眼
+        leftEye.scale.set(1, 0.1, 1); // 笑眼
+        rightEye.scale.set(1, 0.1, 1);
+        mouth.scale.set(2, 0.5, 1); // 微笑
+        if (currentOrgan === 'small_intestine') {
+            meshSI.children.forEach(c => c.material.emissiveIntensity = 3.0);
+        }
+        if (currentOrgan === 'large_intestine') {
+            meshLI.material.emissiveIntensity = 3.0;
+        }
+
+    } else if (currentState === 'sugar') {
+        // 精緻糖：胃部紅光，心跳遲緩，皺眉痛苦，抽搐
+        meshStomach.material.emissive.setHex(0xcc0000); // 警告紅光
+        if(currentOrgan === 'stomach' && isRunning) meshStomach.material.emissiveIntensity = 3.0;
+        
+        headGroup.rotation.z = 0.2; // 歪頭疲憊
+        leftEye.scale.set(1, 0.3, 1); // 死魚眼
+        rightEye.scale.set(1, 0.3, 1);
+        leftArm.rotation.z = 0.05; // 無力下垂
+        rightArm.rotation.z = -0.05;
+        
+        // 間歇性抽搐
+        if (elapsedTime % 3 < 0.2) {
+            qGirl.position.x = 1.5 + Math.sin(elapsedTime * 50) * 0.05;
+        } else {
+            qGirl.position.x = 1.5;
+        }
+    } else {
+        qGirl.position.x = 1.5;
+    }
+
+    renderer.render(scene, camera);
+}
+
+// 響應式視窗縮放
+window.addEventListener('resize', () => {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+});
+
+// 啟動渲染迴圈
+animate();
+</script>
+</body>
+</html>
