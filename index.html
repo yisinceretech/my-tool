@@ -1,519 +1,1480 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>身體聲音合成器 v4.3 (內建繪製 Q版人物與果凍器官)</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-        }
-        body {
-            background-color: #1a1a24;
-            color: #eceff4;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            overflow: hidden;
-            height: 100vh;
-            display: flex;
-        }
-        /* 視覺舞台區 */
-        #stage-container {
-            flex: 1;
-            height: 100vh;
-            position: relative;
-            background: radial-gradient(circle at center, #2e3440 0%, #1a1a24 100%);
-        }
-        #webgl-output {
-            width: 100%;
-            height: 100%;
-        }
-        /* HUD 頂部提示列 (替代 alert) */
-        #hud-status {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(46, 52, 64, 0.9);
-            border: 1px solid #88c0d0;
-            padding: 10px 24px;
-            border-radius: 30px;
-            font-size: 14px;
-            letter-spacing: 1px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            backdrop-filter: blur(5px);
-            pointer-events: none;
-            transition: all 0.3s ease;
-            z-index: 10;
-        }
-        /* 右側控制面板 */
-        #control-panel {
-            width: 340px;
-            height: 100vh;
-            background: rgba(46, 52, 64, 0.95);
-            border-left: 1px solid #4c566a;
-            padding: 20px;
-            overflow-y: auto;
-            box-shadow: -5px 0 25px rgba(0,0,0,0.5);
-            z-index: 5;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-        .panel-section {
-            background: #3b4252;
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid #434c5e;
-        }
-        .panel-section h3 {
-            font-size: 14px;
-            color: #88c0d0;
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .file-input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .file-input-group label {
-            font-size: 12px;
-            color: #d8dee9;
-        }
-        input[type="file"] {
-            font-size: 12px;
-            color: #eceff4;
-            background: #2e3440;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px solid #4c566a;
-            width: 100%;
-            cursor: pointer;
-        }
-        .slider-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            margin-bottom: 12px;
-        }
-        .slider-group label {
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-        }
-        input[type="range"] {
-            width: 100%;
-            accent-color: #88c0d0;
-            cursor: pointer;
-        }
-        .btn {
-            background: #5e81ac;
-            color: #fff;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-            width: 100%;
-            transition: background 0.2s;
-        }
-        .btn:hover {
-            background: #81a1c1;
-        }
-        .btn:active {
-            transform: scale(0.98);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>身體聲音合成器 v4.3｜2.5D 解剖互動儀表板版</title>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* ==========================================
+       1. 全域變數與基礎重置
+       ========================================== */
+    :root {
+      --bg-gradient: linear-gradient(135deg, #2a085c 0%, #4c1d95 35%, #1e3a8a 70%, #0f172a 100%);
+      --glass-bg: rgba(15, 23, 42, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.18);
+      --glass-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.2);
+      --accent-heart: #ff3366;
+      --accent-stomach: #10b981;
+      --accent-blue: #38bdf8;
+      --text-main: #f8fafc;
+      --text-sub: #94a3b8;
+      --panel-padding: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body, html {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft JhengHei", sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+    }
+
+    /* 裝飾性星光與柔和光暈背景 */
+    .bg-decorations {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .glow-blob {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+    }
+    .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: #c084fc; }
+    .blob-2 { bottom: -10%; right: -5%; width: 45vw; height: 45vw; background: #38bdf8; }
+    .blob-3 { top: 40%; left: 30%; width: 35vw; height: 35vw; background: #818cf8; opacity: 0.2; }
+
+    /* ==========================================
+       2. 儀表板主版面 (16:9 左右雙栏)
+       ========================================== */
+    .app-container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      padding: 24px 32px;
+      gap: 28px;
+    }
+
+    /* 左側控制面板 (約 52%) */
+    .left-panel {
+      width: 52%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      box-shadow: var(--glass-shadow);
+      padding: var(--panel-padding);
+      overflow-y: auto;
+    }
+
+    /* 右側角色與 3D 視覺區 (約 48%) */
+    .right-viewport {
+      width: 48%;
+      height: 100%;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 24px;
+      overflow: hidden;
+    }
+
+    /* ==========================================
+       3. 標題與 UI 控制項樣式
+       ========================================== */
+    .header-zone {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .main-title {
+      font-size: 1.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 0%, #fef08a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 20px rgba(192, 132, 252, 0.4);
+    }
+
+    .version-tag {
+      font-size: 0.85rem;
+      color: #e2e8f0;
+      font-weight: 600;
+    }
+
+    .badge-capsule {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      background: rgba(168, 85, 247, 0.3);
+      border: 1px solid rgba(216, 180, 254, 0.4);
+      color: #f3e8ff;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: var(--text-sub);
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.1);
+      margin: 2px 0;
+    }
+
+    /* 雙區控制列 (監聽與聽診) */
+    .dual-control-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .control-card {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .card-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      color: white;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn:focus-visible { outline: 2px solid var(--accent-blue); }
+
+    .btn-start {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    .btn-stop {
+      background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    /* 聽診模式切換 */
+    .btn-mode {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-sub);
+    }
+
+    .btn-mode.active-heart {
+      background: rgba(255, 51, 102, 0.15);
+      border-color: var(--accent-heart);
+      color: #ff80a0;
+      box-shadow: 0 0 12px rgba(255, 51, 102, 0.3);
+    }
+
+    .btn-mode.active-stomach {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-stomach);
+      color: #6ee7b7;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
+
+    /* 狀態指示燈 */
+    .status-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748b;
+    }
+    .dot.active {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulseDot 1.5s infinite;
+    }
+    @keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* 營養狀態 5 連紐 */
+    .nutrition-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .btn-nutr {
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-nutr span.icon { font-size: 1.2rem; }
+    .btn-nutr span.name { font-size: 0.7rem; color: var(--text-sub); }
+    .btn-nutr:hover { background: rgba(51, 65, 85, 0.8); }
+    .btn-nutr.active {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--accent-blue);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.3);
+    }
+    .btn-nutr.active span.name { color: #f0f9ff; font-weight: 700; }
+
+    /* BPM 控制滑桿 */
+    .bpm-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .bpm-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--accent-blue);
+      min-width: 70px;
+      text-align: right;
+    }
+
+    input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #818cf8, #c084fc);
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0,0,0,0.5);
+      transition: transform 0.1s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    /* 波形 Canvas 雙卡片 */
+    .waveform-dual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .canvas-card {
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .canvas-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #64748b;
+      padding-left: 4px;
+    }
+
+    canvas.monitor-canvas {
+      width: 100%;
+      height: 90px;
+      border-radius: 8px;
+      background: #000;
+      display: block;
+    }
+
+    /* 底部說明雙卡片 */
+    .info-dual-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: auto;
+    }
+
+    .info-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 14px;
+      padding: 10px;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      color: var(--text-sub);
+    }
+    .info-card h4 {
+      color: #e2e8f0;
+      margin-bottom: 4px;
+      font-size: 0.78rem;
+    }
+
+    /* ==========================================
+       4. 右側 3D 視覺與浮動 UI 元素
+       ========================================== */
+    #three-canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0; left: 0;
+      z-index: 1;
+    }
+
+    /* SVG 導引虛線層 */
+    #svg-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .floating-card {
+      position: absolute;
+      z-index: 3;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    }
+    .floating-card:hover { transform: scale(1.05); }
+
+    .card-heart {
+      border-color: rgba(255, 51, 102, 0.5);
+      top: 32%; right: 8%;
+    }
+    .card-stomach {
+      border-color: rgba(16, 185, 129, 0.5);
+      top: 52%; right: 8%;
+    }
+
+    .float-icon { font-size: 1.3rem; }
+    .float-text h5 { font-size: 0.85rem; color: #fff; }
+    .float-text p { font-size: 0.7rem; color: var(--text-sub); }
+
+    /* 右側頂部與底部資訊狀態卡 */
+    .top-info-card {
+      position: absolute;
+      top: 16px; right: 16px;
+      z-index: 3;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+      display: flex;
+      gap: 16px;
+    }
+    .top-info-item { display: flex; flex-direction: column; }
+    .top-info-item span.label { color: var(--text-sub); font-size: 0.65rem; }
+    .top-info-item span.val { font-weight: 700; color: #f1f5f9; }
+
+    .bottom-status-card {
+      position: absolute;
+      bottom: 16px; left: 16px;
+      z-index: 3;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 8px 14px;
+      font-size: 0.75rem;
+      display: flex;
+      gap: 12px;
+    }
+
+    /* 圖片上傳隱藏 Input & 觸發按鈕 */
+    .upload-btn-floating {
+      position: absolute;
+      bottom: 16px; right: 16px;
+      z-index: 3;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 6px 12px;
+      font-size: 0.75rem;
+      color: #e2e8f0;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+    .upload-btn-floating:hover { background: rgba(51, 65, 85, 0.9); }
+
+    /* UI 狀態提示 Toast Banner (代替禁用的 alert) */
+    .toast-banner {
+      position: absolute;
+      top: 20px; left: 50%;
+      transform: translateX(-50%) translateY(-100px);
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--accent-blue);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border-radius: 30px;
+      padding: 8px 20px;
+      font-size: 0.8rem;
+      color: #fff;
+      pointer-events: none;
+      transition: transform 0.3s ease;
+    }
+    .toast-banner.show { transform: translateX(-50%) translateY(0); }
+
+    /* ==========================================
+       5. 響應式 RWD 規格 (小螢幕與手機)
+       ========================================== */
+    @media (max-width: 1279px) {
+      body, html { overflow-y: auto; height: auto; }
+      .app-container {
+        flex-direction: column-reverse;
+        height: auto;
+        padding: 16px;
+      }
+      .left-panel { width: 100%; height: auto; }
+      .right-viewport { width: 100%; height: 500px; }
+      .floating-card { padding: 6px 10px; }
+    }
+  </style>
 </head>
 <body>
 
-    <div id="stage-container">
-        <div id="hud-status">內建 Q版透視人物已載入！請調整飲食參數</div>
-        <div id="webgl-output"></div>
+  <div class="bg-decorations">
+    <div class="glow-blob blob-1"></div>
+    <div class="glow-blob blob-2"></div>
+    <div class="glow-blob blob-3"></div>
+  </div>
+
+  <div id="toast-banner" class="toast-banner">已載入身體聲音合成系統</div>
+
+  <div class="app-container">
+
+    <div class="left-panel">
+      
+      <div class="header-zone">
+        <div class="title-row">
+          <h1 class="main-title">身體聲音合成器</h1>
+          <span class="version-tag">v4.3</span>
+          <span class="badge-capsule">2.5D 解剖互動版</span>
+        </div>
+        <p class="subtitle">聽見身體的節奏，感受生命的律動</p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="dual-control-row">
+        
+        <div class="control-card">
+          <div class="card-label">
+            <span>監聽控制</span>
+            <div class="status-indicator">
+              <span id="status-dot" class="dot"></span>
+              <span id="status-text">待機中</span>
+            </div>
+          </div>
+          <div class="btn-group">
+            <button id="btn-start" class="btn btn-start" aria-label="開始監聽">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              開始監聽
+            </button>
+            <button id="btn-stop" class="btn btn-stop" aria-label="停止監聽">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
+              停止
+            </button>
+          </div>
+        </div>
+
+        <div class="control-card">
+          <div class="card-label">聽診模式</div>
+          <div class="btn-group">
+            <button id="btn-mode-heart" class="btn btn-mode active-heart" aria-label="切換至心臟聽診模式">
+              ❤️ 心臟
+            </button>
+            <button id="btn-mode-stomach" class="btn btn-mode" aria-label="切換至腸胃聽診模式">
+              🥗 腸胃
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="control-card">
+        <div class="card-label">生理與營養狀態</div>
+        <div class="nutrition-grid">
+          <button class="btn-nutr active" data-state="normal" aria-label="一般狀態">
+            <span class="icon">🧘</span>
+            <span class="name">一般狀態</span>
+          </button>
+          <button class="btn-nutr" data-state="caffeine" aria-label="咖啡因刺激">
+            <span class="icon">☕</span>
+            <span class="name">咖啡因</span>
+          </button>
+          <button class="btn-nutr" data-state="sugarCrash" aria-label="暴糖反應">
+            <span class="icon">🍩</span>
+            <span class="name">暴糖反應</span>
+          </button>
+          <button class="btn-nutr" data-state="highFiber" aria-label="高纖維消化">
+            <span class="icon">🥦</span>
+            <span class="name">高纖維</span>
+          </button>
+          <button class="btn-nutr" data-state="refinedSugar" aria-label="精緻糖消化">
+            <span class="icon">🥤</span>
+            <span class="name">精緻糖</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <div class="card-label">
+          <span>心跳速率 (BPM)</span>
+          <span id="bpm-val-display" class="bpm-value">72 BPM</span>
+        </div>
+        <div class="slider-row">
+          <span style="font-size:0.75rem; color:var(--text-sub);">40</span>
+          <input type="range" id="bpm-slider" min="40" max="160" value="72" aria-label="調整BPM">
+          <span style="font-size:0.75rem; color:var(--text-sub);">160</span>
+        </div>
+      </div>
+
+      <div class="waveform-dual-grid">
+        <div class="canvas-card">
+          <div class="canvas-title">心跳監測 ECG (Real-time)</div>
+          <canvas id="ecg-canvas" class="monitor-canvas"></canvas>
+        </div>
+        <div class="canvas-card">
+          <div class="canvas-title">腸胃蠕動 Borborygmi</div>
+          <canvas id="stomach-canvas" class="monitor-canvas"></canvas>
+        </div>
+      </div>
+
+      <div class="info-dual-grid">
+        <div class="info-card">
+          <h4>生理狀態說明</h4>
+          <p id="info-desc-text">🧘 一般狀態：生理律動平穩，心律與腸道蠕動維持標準基礎率。</p>
+        </div>
+        <div class="info-card">
+          <h4>操作提示</h4>
+          <p>• 點擊角色身上器官或標籤可切換模式。<br>• 按住滑鼠拖曳角色可微調 2.5D 視角。<br>• 停止監聽音訊時將完全靜音。</p>
+        </div>
+      </div>
+
     </div>
 
-    <div id="control-panel">
-        <h2>身體聲音 v4.3</h2>
+    <div class="right-viewport" id="viewport-container">
+      
+      <div id="three-canvas-container"></div>
 
-        <div class="panel-section">
-            <h3>🖼️ 1. 人物圖層設定</h3>
-            <div class="file-input-group">
-                <label>更換自訂去背人物圖 (選填 PNG)</label>
-                <input type="file" id="upload-body" accept="image/*">
-            </div>
+      <svg id="svg-overlay">
+        <line id="line-heart" stroke="#ff3366" stroke-width="2" stroke-dasharray="4,4" />
+        <circle id="dot-heart" r="4" fill="#ff3366" />
+        <line id="line-stomach" stroke="#10b981" stroke-width="2" stroke-dasharray="4,4" />
+        <circle id="dot-stomach" r="4" fill="#10b981" />
+      </svg>
+
+      <div id="float-card-heart" class="floating-card card-heart" aria-label="心臟標籤">
+        <span class="float-icon">❤️</span>
+        <div class="float-text">
+          <h5>心臟 (Heart)</h5>
+          <p id="heart-card-sub">72 BPM · 點擊切換</p>
         </div>
+      </div>
 
-        <div class="panel-section">
-            <h3>🍔 2. 飲食狀況模擬</h3>
-            <div class="slider-group">
-                <label><span>咖啡因濃度 (心跳/發抖)</span><span id="val-caffeine">0%</span></label>
-                <input type="range" id="slider-caffeine" min="0" max="100" value="0">
-            </div>
-            <div class="slider-group">
-                <label><span>消化負擔 (胃蠕動/腸鳴)</span><span id="val-digestion">20%</span></label>
-                <input type="range" id="slider-digestion" min="0" max="100" value="20">
-            </div>
+      <div id="float-card-stomach" class="floating-card card-stomach" aria-label="腸胃標籤">
+        <span class="float-icon">🥗</span>
+        <div class="float-text">
+          <h5>消化系統 (GI System)</h5>
+          <p id="stomach-card-sub">律動中 · 點擊切換</p>
         </div>
+      </div>
 
-        <div class="panel-section">
-            <h3>📐 3. 器官位置與縮放微調</h3>
-            <div class="slider-group">
-                <label>心臟 Y 軸位置</label>
-                <input type="range" id="slider-heart-y" min="-2" max="2" step="0.05" value="0.35">
-            </div>
-            <div class="slider-group">
-                <label>腸胃 Y 軸位置</label>
-                <input type="range" id="slider-stomach-y" min="-2" max="2" step="0.05" value="-0.45">
-            </div>
-            <div class="slider-group">
-                <label>器官整體縮放比例</label>
-                <input type="range" id="slider-organ-scale" min="0.5" max="1.8" step="0.05" value="1.0">
-            </div>
+      <div class="top-info-card">
+        <div class="top-info-item">
+          <span class="label">聽診焦點</span>
+          <span id="info-val-mode" class="val" style="color:var(--accent-heart);">心臟</span>
         </div>
+        <div class="top-info-item">
+          <span class="label">當前狀態</span>
+          <span id="info-val-state" class="val">一般狀態</span>
+        </div>
+        <div class="top-info-item">
+          <span class="label">系統時間</span>
+          <span id="info-val-time" class="val">00:00:00</span>
+        </div>
+      </div>
 
-        <button class="btn" id="btn-audio-toggle">🔊 啟動音訊引擎</button>
+      <div class="bottom-status-card">
+        <div>表情: <b id="val-expr" style="color:#38bdf8;">平穩</b></div>
+        <div>情緒: <b id="val-mood" style="color:#a855f7;">舒適</b></div>
+        <div>能量: <b id="val-energy" style="color:#facc15;">100%</b></div>
+      </div>
+
+      <button class="upload-btn-floating" onclick="document.getElementById('img-uploader').click()">
+        📷 上傳人物圖案
+      </button>
+      <input type="file" id="img-uploader" accept="image/png, image/webp" style="display:none;">
+
     </div>
 
-    <script>
-        // --- 1. 全域變數 ---
-        let scene, camera, renderer;
-        let characterGroup;
-        let bodyMesh, heartMesh, stomachMesh;
+  </div>
 
-        // 飲食與生理狀態變數
-        let caffeineLevel = 0; // 0 ~ 1
-        let digestionLevel = 0.2; // 0 ~ 1
-        let organScaleBase = 1.0;
-        let clock = new THREE.Clock();
+  <script>
+    /* ----------------------------------------------------
+       A. 全域狀態與解剖配置
+       ---------------------------------------------------- */
+    const state = {
+      isListening: false,
+      mode: 'heart', // 'heart' | 'stomach'
+      nutrition: 'normal', // 'normal' | 'caffeine' | 'sugarCrash' | 'highFiber' | 'refinedSugar'
+      bpm: 72,
+      time: 0,
+      audioCtx: null,
+      isAudioInit: false
+    };
 
-        // Web Audio API 變數
-        let audioCtx = null;
-        let isAudioActive = false;
-        let heartOsc = null, stomachOsc = null;
-        let heartGain = null, stomachGain = null;
+    // 解剖器官於角色上的歸一化幾何配置
+    const anatomyConfig = {
+      heart: { x: -0.05, y: 0.22, scale: 0.22 },
+      digestive: { x: 0.0, y: -0.08, scale: 0.45 }
+    };
 
-        // HUD 狀態提示 (取代 alert)
-        function showHUD(msg) {
-            const hud = document.getElementById('hud-status');
-            hud.innerText = msg;
-        }
+    // 營養狀態預設特徵參數
+    const nutritionPresets = {
+      normal: { bpm: 72, expr: '平穩', mood: '舒適', energy: '100%', desc: '🧘 一般狀態：生理律動平穩，心律與腸道蠕動維持標準基礎率。' },
+      caffeine: { bpm: 125, expr: '驚恐/發抖', mood: '極度興奮', energy: '180%', desc: '☕ 咖啡因刺激：心跳顯著加速，神經高頻震顫，腸胃蠕動頻率升高。' },
+      sugarCrash: { bpm: 52, expr: '虛脫/昏沉', mood: '疲憊低迷', energy: '35%', desc: '🍩 暴糖反應：血糖驟降致生理運作遲緩，心搏慢且弱，腸胃排空減速。' },
+      highFiber: { bpm: 78, expr: '愉悅笑眼', mood: '非常健康', energy: '120%', desc: '🥦 高纖維消化：腸道菌叢活化，蠕動具規律強勁節律，促進養分吸收。' },
+      refinedSugar: { bpm: 88, expr: '不適/悶痛', mood: '負擔沈重', energy: '60%', desc: '🥤 精緻糖消化：引發腸道不規則氣體膨脹與紊亂蠕動，生理波動劇烈。' }
+    };
 
-        // --- 2. 動態利用 HTML5 Canvas 程式生成 Q版透明人物貼圖 (解決沒有實體 PNG 檔案的問題) ---
-        function generateProceduralChibiTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 512;
-            canvas.height = 680;
-            const ctx = canvas.getContext('2d');
+    /* ----------------------------------------------------
+       B. Helper 函式 (Toast Banner 代替 alert)
+       ---------------------------------------------------- */
+    function showToast(msg) {
+      const banner = document.getElementById('toast-banner');
+      banner.textContent = msg;
+      banner.classList.add('show');
+      setTimeout(() => banner.classList.remove('show'), 3000);
+    }
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    /* ----------------------------------------------------
+       C. Dynamic Canvas Texture 器官圖案生成器
+       ---------------------------------------------------- */
+    // 純程式碼動態繪製可愛且精確的「解剖心臟」圖案 (PNG 透明背景 Texture)
+    function createHeartTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
 
-            // 外發光筆觸
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = "rgba(136, 192, 208, 0.5)";
+      ctx.clearRect(0, 0, 512, 512);
 
-            // 1. Q版大頭 (透明玻璃質感外框)
-            ctx.beginPath();
-            ctx.arc(256, 180, 130, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(236, 239, 244, 0.15)";
-            ctx.strokeStyle = "rgba(216, 222, 233, 0.8)";
-            ctx.lineWidth = 6;
-            ctx.fill();
-            ctx.stroke();
+      // 主動脈與血管
+      ctx.fillStyle = '#e11d48';
+      ctx.beginPath();
+      ctx.arc(230, 160, 35, Math.PI, 0);
+      ctx.lineTo(265, 240);
+      ctx.lineTo(195, 240);
+      ctx.fill();
 
-            // 2. 可愛貓耳/頭髮裝飾線條
-            ctx.beginPath();
-            ctx.moveTo(150, 100); ctx.lineTo(120, 30); ctx.lineTo(190, 70);
-            ctx.moveTo(362, 100); ctx.lineTo(392, 30); ctx.lineTo(322, 70);
-            ctx.fillStyle = "rgba(236, 239, 244, 0.2)";
-            ctx.fill();
-            ctx.stroke();
+      // 肺動脈 (藍紫)
+      ctx.fillStyle = '#0284c7';
+      ctx.beginPath();
+      ctx.arc(280, 180, 28, 0, Math.PI * 2);
+      ctx.fill();
 
-            // 3. 可愛眼睛與腮紅
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = "#2e3440";
-            ctx.beginPath(); ctx.arc(210, 180, 16, 0, Math.PI * 2); ctx.fill(); // 左眼
-            ctx.beginPath(); ctx.arc(302, 180, 16, 0, Math.PI * 2); ctx.fill(); // 右眼
+      // 左/右心室主體 (紅粉漸層)
+      const grad = ctx.createRadialGradient(240, 280, 20, 256, 280, 180);
+      grad.addColorStop(0, '#ff4d6d');
+      grad.addColorStop(0.7, '#c9184a');
+      grad.addColorStop(1, '#800f2f');
 
-            // 眼神高光
-            ctx.fillStyle = "#ffffff";
-            ctx.beginPath(); ctx.arc(205, 175, 5, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(297, 175, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(256, 170);
+      ctx.bezierCurveTo(130, 150, 110, 310, 240, 420);
+      ctx.bezierCurveTo(270, 435, 280, 420, 380, 310);
+      ctx.bezierCurveTo(400, 160, 280, 150, 256, 170);
+      ctx.fill();
 
-            // 腮紅
-            ctx.fillStyle = "rgba(255, 107, 129, 0.4)";
-            ctx.beginPath(); ctx.arc(185, 205, 14, 0, Math.PI * 2); ctx.fill();
-            ctx.beginPath(); ctx.arc(327, 205, 14, 0, Math.PI * 2); ctx.fill();
+      // 高光與解剖溝紋
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(200, 240, 60, Math.PI * 0.8, Math.PI * 1.3);
+      ctx.stroke();
 
-            // 微笑嘴巴
-            ctx.beginPath();
-            ctx.arc(256, 200, 12, 0.1 * Math.PI, 0.9 * Math.PI);
-            ctx.strokeStyle = "#2e3440";
-            ctx.lineWidth = 4;
-            ctx.stroke();
+      // 心前溝冠狀血管
+      ctx.strokeStyle = '#ff758f';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(260, 200);
+      ctx.bezierCurveTo(280, 260, 250, 320, 270, 390);
+      ctx.stroke();
 
-            // 4. Q版小軀幹與手腳 (玻璃透明艙)
-            ctx.beginPath();
-            ctx.roundRect(176, 300, 160, 240, 40);
-            ctx.fillStyle = "rgba(236, 239, 244, 0.08)";
-            ctx.strokeStyle = "rgba(216, 222, 233, 0.7)";
-            ctx.lineWidth = 5;
-            ctx.fill();
-            ctx.stroke();
+      return new THREE.CanvasTexture(canvas);
+    }
 
-            // 小手臂
-            ctx.beginPath();
-            ctx.arc(140, 360, 25, 0, Math.PI * 2);
-            ctx.arc(372, 360, 25, 0, Math.PI * 2);
-            ctx.stroke();
+    // 純程式碼動態繪製可愛「消化系統 (胃、小腸、大腸)」圖案
+    function createDigestiveTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 512;
+      const ctx = canvas.getContext('2d');
 
-            // 小腳
-            ctx.beginPath();
-            ctx.arc(210, 560, 28, 0, Math.PI * 2);
-            ctx.arc(302, 560, 28, 0, Math.PI * 2);
-            ctx.stroke();
+      ctx.clearRect(0, 0, 512, 512);
 
-            const texture = new THREE.CanvasTexture(canvas);
-            return texture;
-        }
+      // 1. 胃部 (蜜桃橙色)
+      const stomachGrad = ctx.createLinearGradient(180, 120, 320, 260);
+      stomachGrad.addColorStop(0, '#fb923c');
+      stomachGrad.addColorStop(1, '#ea580c');
+      ctx.fillStyle = stomachGrad;
+      ctx.beginPath();
+      ctx.moveTo(220, 120);
+      ctx.bezierCurveTo(130, 130, 120, 240, 220, 250);
+      ctx.bezierCurveTo(310, 260, 340, 180, 270, 130);
+      ctx.bezierCurveTo(250, 110, 230, 110, 220, 120);
+      ctx.fill();
 
-        // --- 3. 初始化 Three.js 場景 ---
-        function initScene() {
-            const container = document.getElementById('webgl-output');
+      // 2. 小腸 (淺綠盤繞)
+      ctx.strokeStyle = '#4ade80';
+      ctx.lineWidth = 22;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(230, 280);
+      ctx.lineTo(280, 290); ctx.lineTo(220, 320);
+      ctx.lineTo(290, 340); ctx.lineTo(210, 370);
+      ctx.lineTo(270, 390);
+      ctx.stroke();
 
-            scene = new THREE.Scene();
+      // 3. 大腸 (較粗深綠包覆)
+      ctx.strokeStyle = '#15803d';
+      ctx.lineWidth = 32;
+      ctx.beginPath();
+      // 盲腸與升結腸
+      ctx.moveTo(160, 400); ctx.lineTo(160, 270);
+      // 橫結腸
+      ctx.lineTo(350, 270);
+      // 降結腸與乙狀結腸
+      ctx.lineTo(350, 410); ctx.lineTo(256, 430);
+      ctx.stroke();
 
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.z = 6;
+      // 大腸袋狀高光
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(165, 380); ctx.lineTo(165, 280);
+      ctx.lineTo(345, 280); ctx.lineTo(345, 390);
+      ctx.stroke();
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(window.devicePixelRatio);
-            container.appendChild(renderer.domElement);
+      return new THREE.CanvasTexture(canvas);
+    }
 
-            // 環境光與光影
-            const ambientLight = new THREE.AmbientLight(0xffffff, 1.2);
-            scene.add(ambientLight);
+    // 生成預設預設 2D 人物圖案 Canvas (避免無上傳時空白)
+    function createDefaultCharacterTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512; canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-            dirLight.position.set(3, 3, 5);
-            scene.add(dirLight);
+      ctx.clearRect(0,0,512,1024);
 
-            characterGroup = new THREE.Group();
-            scene.add(characterGroup);
+      // 柔和 Q 版人體剪影
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 6;
 
-            // 創建人物 Mesh (套用內建生成的 Canvas 貼圖)
-            const bodyGeo = new THREE.PlaneGeometry(3, 4);
-            const bodyMat = new THREE.MeshBasicMaterial({
-                map: generateProceduralChibiTexture(),
-                transparent: true,
-                side: THREE.DoubleSide
-            });
-            bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-            bodyMesh.position.z = -0.05;
-            characterGroup.add(bodyMesh);
+      // 頭部
+      ctx.beginPath(); ctx.arc(256, 200, 110, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      // 軀幹
+      ctx.beginPath(); ctx.roundRect(160, 330, 192, 380, 40); ctx.fill(); ctx.stroke();
+      // 四肢
+      ctx.beginPath(); ctx.roundRect(90, 340, 55, 300, 25); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(367, 340, 55, 300, 25); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(175, 720, 65, 240, 30); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.roundRect(272, 720, 65, 240, 30); ctx.fill(); ctx.stroke();
 
-            // 繪製 Q版解剖果凍器官
-            drawHTMLOrgans();
+      return new THREE.CanvasTexture(canvas);
+    }
 
-            window.addEventListener('resize', onWindowResize);
-        }
+    /* ----------------------------------------------------
+       D. Three.js 2.5D 視覺舞台引擎
+       ---------------------------------------------------- */
+    let scene, camera, renderer;
+    let characterGroup, charMesh, heartMesh, stomachMesh;
+    let raycaster, mouse;
 
-        // --- 4. 繪製 Q版果凍質感心臟與腸胃 ---
-        function drawHTMLOrgans() {
-            // A. 手繪心臟 (ShapeGeometry + 果凍質感材質)
-            const heartShape = new THREE.Shape();
-            heartShape.moveTo(0, 0.25);
-            heartShape.bezierCurveTo(0, 0.6, -0.55, 0.6, -0.55, 0.15);
-            heartShape.bezierCurveTo(-0.55, -0.25, 0, -0.5, 0, -0.7);
-            heartShape.bezierCurveTo(0, -0.5, 0.55, -0.25, 0.55, 0.15);
-            heartShape.bezierCurveTo(0.55, 0.6, 0, 0.6, 0, 0.25);
+    function initThreeScene() {
+      const container = document.getElementById('three-canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
 
-            const heartGeo = new THREE.ShapeGeometry(heartShape);
-            const heartMat = new THREE.MeshStandardMaterial({ 
-                color: 0xff6b81, 
-                emissive: 0xaa0000,
-                roughness: 0.2,
-                metalness: 0.4,
-                transparent: true,
-                opacity: 0.9,
-                side: THREE.DoubleSide 
-            });
-            heartMesh = new THREE.Mesh(heartGeo, heartMat);
-            heartMesh.position.set(0, 0.35, 0.05);
-            characterGroup.add(heartMesh);
+      scene = new THREE.Scene();
+      
+      // 正交/透視攝影機 (適度 FOV 呈現 2.5D)
+      camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 100);
+      camera.position.set(0, 0, 5);
 
-            // B. 手繪腸胃 (ShapeGeometry)
-            const stomachShape = new THREE.Shape();
-            stomachShape.moveTo(-0.15, 0.3);
-            stomachShape.bezierCurveTo(-0.7, 0.3, -0.7, -0.2, -0.15, -0.3);
-            stomachShape.bezierCurveTo(0.5, -0.4, 0.7, 0.1, 0.4, 0.3);
-            stomachShape.bezierCurveTo(0.1, 0.4, -0.1, 0.3, -0.15, 0.3);
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
 
-            const stomachGeo = new THREE.ShapeGeometry(stomachShape);
-            const stomachMat = new THREE.MeshStandardMaterial({ 
-                color: 0xa3be8c, 
-                emissive: 0x224422,
-                roughness: 0.2,
-                metalness: 0.4,
-                transparent: true,
-                opacity: 0.9,
-                side: THREE.DoubleSide 
-            });
-            stomachMesh = new THREE.Mesh(stomachGeo, stomachMat);
-            stomachMesh.position.set(0, -0.45, 0.05);
-            characterGroup.add(stomachMesh);
-        }
+      // 環境光與柔和平行光
+      const ambLight = new THREE.AmbientLight(0xffffff, 1.2);
+      scene.add(ambLight);
+      const dirLight = new THREE.DirectionalLight(0x38bdf8, 0.8);
+      dirLight.position.set(2, 4, 5);
+      scene.add(dirLight);
 
-        // --- 5. 圖片上傳邏輯 ---
-        function setupUpload() {
-            const textureLoader = new THREE.TextureLoader();
-            document.getElementById('upload-body').addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (file) {
-                    const url = URL.createObjectURL(file);
-                    textureLoader.load(url, (texture) => {
-                        bodyMesh.material.map = texture;
-                        bodyMesh.material.needsUpdate = true;
-                        showHUD("自訂人物圖案已成功覆蓋！");
-                    });
-                }
-            });
-        }
+      // 一體化複合群組 characterGroup
+      characterGroup = new THREE.Group();
+      scene.add(characterGroup);
 
-        // --- 6. UI 控制與對齊微調 ---
-        function setupControls() {
-            document.getElementById('slider-caffeine').addEventListener('input', (e) => {
-                caffeineLevel = parseFloat(e.target.value) / 100;
-                document.getElementById('val-caffeine').innerText = `${e.target.value}%`;
-                updateAudio();
-            });
+      // 1. 人物平面
+      const charGeo = new THREE.PlaneGeometry(2.2, 4.4);
+      const charMat = new THREE.MeshBasicMaterial({
+        map: createDefaultCharacterTexture(),
+        transparent: true,
+        side: THREE.DoubleSide
+      });
+      charMesh = new THREE.Mesh(charGeo, charMat);
+      characterGroup.add(charMesh);
 
-            document.getElementById('slider-digestion').addEventListener('input', (e) => {
-                digestionLevel = parseFloat(e.target.value) / 100;
-                document.getElementById('val-digestion').innerText = `${e.target.value}%`;
-                updateAudio();
-            });
+      // 2. 心臟網格 Mesh
+      const heartGeo = new THREE.PlaneGeometry(1.2, 1.2);
+      const heartMat = new THREE.MeshBasicMaterial({
+        map: createHeartTexture(),
+        transparent: true,
+        depthWrite: false
+      });
+      heartMesh = new THREE.Mesh(heartGeo, heartMat);
+      heartMesh.position.set(anatomyConfig.heart.x, anatomyConfig.heart.y, 0.02);
+      heartMesh.scale.setScalar(anatomyConfig.heart.scale);
+      heartMesh.userData = { type: 'heart' };
+      characterGroup.add(heartMesh);
 
-            document.getElementById('slider-heart-y').addEventListener('input', (e) => {
-                if (heartMesh) heartMesh.position.y = parseFloat(e.target.value);
-            });
-            document.getElementById('slider-stomach-y').addEventListener('input', (e) => {
-                if (stomachMesh) stomachMesh.position.y = parseFloat(e.target.value);
-            });
-            document.getElementById('slider-organ-scale').addEventListener('input', (e) => {
-                organScaleBase = parseFloat(e.target.value);
-            });
+      // 3. 腸胃網格 Mesh
+      const stomachGeo = new THREE.PlaneGeometry(1.6, 1.6);
+      const stomachMat = new THREE.MeshBasicMaterial({
+        map: createDigestiveTexture(),
+        transparent: true,
+        depthWrite: false
+      });
+      stomachMesh = new THREE.Mesh(stomachGeo, stomachMat);
+      stomachMesh.position.set(anatomyConfig.digestive.x, anatomyConfig.digestive.y, 0.01);
+      stomachMesh.scale.setScalar(anatomyConfig.digestive.scale);
+      stomachMesh.userData = { type: 'stomach' };
+      characterGroup.add(stomachMesh);
 
-            document.getElementById('btn-audio-toggle').addEventListener('click', toggleAudio);
-        }
+      // 腳底橢圓形投影
+      const shadowGeo = new THREE.PlaneGeometry(2, 0.6);
+      const shadowCanvas = document.createElement('canvas');
+      shadowCanvas.width = 128; shadowCanvas.height = 64;
+      const sCtx = shadowCanvas.getContext('2d');
+      const sGrad = sCtx.createRadialGradient(64,32,0, 64,32,30);
+      sGrad.addColorStop(0, 'rgba(0,0,0,0.6)');
+      sGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      sCtx.fillStyle = sGrad; sCtx.fillRect(0,0,128,64);
+      const shadowMat = new THREE.MeshBasicMaterial({
+        map: new THREE.CanvasTexture(shadowCanvas),
+        transparent: true
+      });
+      const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+      shadowMesh.position.set(0, -2.1, -0.05);
+      shadowMesh.rotation.x = -Math.PI * 0.1;
+      characterGroup.add(shadowMesh);
 
-        // --- 7. Web Audio API 音訊邏輯 ---
-        function toggleAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+      // 互動 Raycaster
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
 
-            if (!isAudioActive) {
-                heartOsc = audioCtx.createOscillator();
-                heartGain = audioCtx.createGain();
-                heartOsc.type = 'sine';
-                heartOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
-                heartGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-                heartOsc.connect(heartGain);
-                heartGain.connect(audioCtx.destination);
-                heartOsc.start();
+      // 監聽畫布點擊切換器官
+      container.addEventListener('click', onPointerClick);
 
-                stomachOsc = audioCtx.createOscillator();
-                stomachGain = audioCtx.createGain();
-                stomachOsc.type = 'sawtooth';
-                stomachOsc.frequency.setValueAtTime(100, audioCtx.currentTime);
-                stomachGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
-                stomachOsc.connect(stomachGain);
-                stomachGain.connect(audioCtx.destination);
-                stomachOsc.start();
+      // 滑鼠拖曳 2.5D 視角微旋轉
+      let isDragging = false, prevMouseX = 0, prevMouseY = 0;
+      container.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+        characterGroup.rotation.y += deltaX * 0.005;
+        characterGroup.rotation.x += deltaY * 0.005;
+        // 限制角度
+        characterGroup.rotation.y = THREE.MathUtils.clamp(characterGroup.rotation.y, -0.3, 0.3);
+        characterGroup.rotation.x = THREE.MathUtils.clamp(characterGroup.rotation.x, -0.2, 0.2);
+        prevMouseX = e.clientX; prevMouseY = e.clientY;
+      });
+      window.addEventListener('mouseup', () => isDragging = false);
 
-                isAudioActive = true;
-                document.getElementById('btn-audio-toggle').innerText = "⏸️ 暫停音訊引擎";
-                showHUD("Web Audio 身體音效引擎已開啟");
-            } else {
-                audioCtx.suspend();
-                isAudioActive = false;
-                document.getElementById('btn-audio-toggle').innerText = "🔊 啟動音訊引擎";
-                showHUD("音訊引擎已暫停");
-            }
-        }
+      // 雙擊重置視角
+      container.addEventListener('dblclick', () => {
+        characterGroup.rotation.set(0,0,0);
+        camera.position.set(0,0,5);
+      });
+    }
 
-        function updateAudio() {
-            if (!isAudioActive || !audioCtx) return;
-            heartOsc.frequency.setTargetAtTime(50 + (caffeineLevel * 70), audioCtx.currentTime, 0.1);
-            stomachOsc.frequency.setTargetAtTime(80 + (digestionLevel * 100), audioCtx.currentTime, 0.1);
-        }
+    // Raycaster 點擊檢測
+    function onPointerClick(e) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        // --- 8. 動畫迴圈 (呼吸、發抖與器官脈動形變) ---
-        function animate() {
-            requestAnimationFrame(animate);
-            const elapsedTime = clock.getElapsedTime();
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects([heartMesh, stomachMesh]);
 
-            // A. 全域緩慢呼吸
-            characterGroup.position.y = Math.sin(elapsedTime * 1.5) * 0.03;
+      if (intersects.length > 0) {
+        const clickedType = intersects[0].object.userData.type;
+        switchMode(clickedType);
+      }
+    }
 
-            // B. 咖啡因發抖
-            if (caffeineLevel > 0) {
-                const shake = caffeineLevel * 0.04;
-                characterGroup.position.x = (Math.random() - 0.5) * shake;
-                characterGroup.position.y += (Math.random() - 0.5) * shake;
-            } else {
-                characterGroup.position.x = 0;
-            }
+    /* ----------------------------------------------------
+       E. Web Audio API 音訊合成引擎
+       ---------------------------------------------------- */
+    let masterGain, heartGain, stomachGain;
+    let nextBeatTime = 0;
 
-            // C. 心臟幾何脈動
-            if (heartMesh) {
-                const heartRate = 3.5 + (caffeineLevel * 7.5);
-                const contraction = Math.sin(elapsedTime * heartRate) * 0.12;
-                heartMesh.scale.set(
-                    (0.8 - contraction) * organScaleBase,
-                    (0.8 + contraction) * organScaleBase,
-                    0.8
-                );
-            }
+    function initAudioEngine() {
+      if (state.isAudioInit) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      state.audioCtx = new AudioCtx();
 
-            // D. 腸胃蠕動
-            if (stomachMesh) {
-                const digestRate = 1.2 + (digestionLevel * 3.8);
-                const squish = Math.cos(elapsedTime * digestRate) * 0.08;
-                stomachMesh.scale.set(
-                    (0.9 + squish) * organScaleBase,
-                    (0.7 - squish) * organScaleBase,
-                    0.9
-                );
-            }
+      masterGain = state.audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0, state.audioCtx.currentTime);
+      masterGain.connect(state.audioCtx.destination);
 
-            renderer.render(scene, camera);
-        }
+      heartGain = state.audioCtx.createGain();
+      heartGain.connect(masterGain);
 
-        function onWindowResize() {
-            const container = document.getElementById('webgl-output');
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        }
+      stomachGain = state.audioCtx.createGain();
+      stomachGain.connect(masterGain);
 
-        window.onload = () => {
-            initScene();
-            setupUpload();
-            setupControls();
-            animate();
+      state.isAudioInit = true;
+    }
+
+    // 播放心跳 Lub-Dub 即時合成音效
+    function triggerHeartSound(time) {
+      if (!state.isListening || state.mode !== 'heart') return;
+
+      const ctx = state.audioCtx;
+      
+      // Lub (第一心音 - 較低沉 55Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(55, time);
+      osc1.frequency.exponentialRampToValueAtTime(25, time + 0.12);
+
+      gain1.gain.setValueAtTime(0.8, time);
+      gain1.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+
+      osc1.connect(gain1);
+      gain1.connect(heartGain);
+
+      osc1.start(time);
+      osc1.stop(time + 0.13);
+
+      // Dub (第二心音 - 稍微高頻 75Hz，延遲 0.15 秒)
+      const dubTime = time + 0.15;
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(75, dubTime);
+      osc2.frequency.exponentialRampToValueAtTime(30, dubTime + 0.1);
+
+      gain2.gain.setValueAtTime(0.6, dubTime);
+      gain2.gain.exponentialRampToValueAtTime(0.001, dubTime + 0.1);
+
+      osc2.connect(gain2);
+      gain2.connect(heartGain);
+
+      osc2.start(dubTime);
+      osc2.stop(dubTime + 0.11);
+    }
+
+    // 腸胃 Borborygmi 咕嚕咕嚕聲合成 (帶通濾波 + 雜音)
+    function triggerStomachSound() {
+      if (!state.isListening || state.mode !== 'stomach') return;
+      const ctx = state.audioCtx;
+      const now = ctx.currentTime;
+
+      // 產生 0.5 秒的 Noise
+      const bufferSize = ctx.sampleRate * 0.5;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(200 + Math.random() * 300, now);
+      filter.Q.setValueAtTime(3.0, now);
+
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.01, now);
+      gain.gain.linearRampToValueAtTime(0.4, now + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(stomachGain);
+
+      noise.start(now);
+      noise.stop(now + 0.5);
+    }
+
+    /* ----------------------------------------------------
+       F. Real-time 波形 Canvas 繪製 (ECG & Borborygmi)
+       ---------------------------------------------------- */
+    let ecgCanvas, ecgCtx, stomachCanvas, stomachCtx;
+    let ecgPoints = [], stomachPoints = [];
+
+    function initCanvases() {
+      ecgCanvas = document.getElementById('ecg-canvas');
+      ecgCtx = ecgCanvas.getContext('2d');
+      stomachCanvas = document.getElementById('stomach-canvas');
+      stomachCtx = stomachCanvas.getContext('2d');
+
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+    }
+
+    function resizeCanvases() {
+      [ecgCanvas, stomachCanvas].forEach(canvas => {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+      });
+    }
+
+    // 動態計算 ECG 脈衝波形 Y 值
+    function getECGValue(phase) {
+      // phase 0 ~ 1
+      if (phase > 0.1 && phase < 0.15) return -0.15; // P 波
+      if (phase >= 0.15 && phase < 0.18) return 0.1; // Q
+      if (phase >= 0.18 && phase < 0.23) return -1.0; // R 頂峰
+      if (phase >= 0.23 && phase < 0.27) return 0.35; // S
+      if (phase >= 0.35 && phase < 0.45) return -0.25; // T 波
+      return 0;
+    }
+
+    function drawMonitors(delta) {
+      // 1. 繪製心電圖 ECG
+      const eW = ecgCanvas.width, eH = ecgCanvas.height;
+      ecgCtx.fillStyle = '#020617';
+      ecgCtx.fillRect(0, 0, eW, eH);
+
+      // 方格網格
+      ecgCtx.strokeStyle = 'rgba(255, 51, 102, 0.15)';
+      ecgCtx.lineWidth = 1;
+      const gridSize = 20 * window.devicePixelRatio;
+      for (let x = 0; x < eW; x += gridSize) {
+        ecgCtx.beginPath(); ecgCtx.moveTo(x, 0); ecgCtx.lineTo(x, eH); ecgCtx.stroke();
+      }
+      for (let y = 0; y < eH; y += gridSize) {
+        ecgCtx.beginPath(); ecgCtx.moveTo(0, y); ecgCtx.lineTo(eW, y); ecgCtx.stroke();
+      }
+
+      // 推進波形資料
+      const beatPeriod = 60 / state.bpm;
+      const phase = (state.time % beatPeriod) / beatPeriod;
+      const ecgVal = state.isListening ? getECGValue(phase) : 0;
+
+      ecgPoints.push(ecgVal);
+      if (ecgPoints.length > eW / 3) ecgPoints.shift();
+
+      ecgCtx.strokeStyle = '#ff3366';
+      ecgCtx.lineWidth = 2 * window.devicePixelRatio;
+      ecgCtx.beginPath();
+      const midY = eH / 2;
+      for (let i = 0; i < ecgPoints.length; i++) {
+        const x = i * 3;
+        const y = midY + ecgPoints[i] * (eH * 0.35);
+        if (i === 0) ecgCtx.moveTo(x, y);
+        else ecgCtx.lineTo(x, y);
+      }
+      ecgCtx.stroke();
+
+      // 2. 繪製腸胃 Borborygmi 波形
+      const sW = stomachCanvas.width, sH = stomachCanvas.height;
+      stomachCtx.fillStyle = '#020617';
+      stomachCtx.fillRect(0, 0, sW, sH);
+
+      // 青綠色網格
+      stomachCtx.strokeStyle = 'rgba(16, 185, 129, 0.12)';
+      for (let x = 0; x < sW; x += gridSize) {
+        stomachCtx.beginPath(); stomachCtx.moveTo(x, 0); stomachCtx.lineTo(x, sH); stomachCtx.stroke();
+      }
+
+      let stVal = 0;
+      if (state.isListening && state.mode === 'stomach') {
+        stVal = (Math.sin(state.time * 8) * 0.4 + Math.sin(state.time * 23) * 0.3) * (Math.random() > 0.3 ? 1 : 0.1);
+      }
+      stomachPoints.push(stVal);
+      if (stomachPoints.length > sW / 3) stomachPoints.shift();
+
+      stomachCtx.strokeStyle = '#10b981';
+      stomachCtx.lineWidth = 2 * window.devicePixelRatio;
+      stomachCtx.beginPath();
+      for (let i = 0; i < stomachPoints.length; i++) {
+        const x = i * 3;
+        const y = (sH / 2) + stomachPoints[i] * (sH * 0.35);
+        if (i === 0) stomachCtx.moveTo(x, y);
+        else stomachCtx.lineTo(x, y);
+      }
+      stomachCtx.stroke();
+    }
+
+    /* ----------------------------------------------------
+       G. 浮動標籤 SVG 虛線定位更新
+       ---------------------------------------------------- */
+    function updateOverlayLines() {
+      if (!characterGroup || !camera) return;
+
+      const container = document.getElementById('viewport-container');
+      const rect = container.getBoundingClientRect();
+
+      // 計算器官 3D 世界座標轉螢幕 2D 座標
+      function getScreenPos(mesh) {
+        const worldVec = new THREE.Vector3();
+        mesh.getWorldPosition(worldVec);
+        worldVec.project(camera);
+        return {
+          x: (worldVec.x * 0.5 + 0.5) * rect.width,
+          y: (-worldVec.y * 0.5 + 0.5) * rect.height
         };
-    </script>
+      }
+
+      const heartPos = getScreenPos(heartMesh);
+      const stomachPos = getScreenPos(stomachMesh);
+
+      // 心臟卡片連線
+      const cardHeart = document.getElementById('float-card-heart');
+      const cHeartRect = cardHeart.getBoundingClientRect();
+      const cHeartX = cHeartRect.left - rect.left;
+      const cHeartY = cHeartRect.top - rect.top + cHeartRect.height / 2;
+
+      const lineHeart = document.getElementById('line-heart');
+      const dotHeart = document.getElementById('dot-heart');
+      lineHeart.setAttribute('x1', heartPos.x); lineHeart.setAttribute('y1', heartPos.y);
+      lineHeart.setAttribute('x2', cHeartX); lineHeart.setAttribute('y2', cHeartY);
+      dotHeart.setAttribute('cx', heartPos.x); dotHeart.setAttribute('cy', heartPos.y);
+
+      // 腸胃卡片連線
+      const cardStomach = document.getElementById('float-card-stomach');
+      const cStomachRect = cardStomach.getBoundingClientRect();
+      const cStomachX = cStomachRect.left - rect.left;
+      const cStomachY = cStomachRect.top - rect.top + cStomachRect.height / 2;
+
+      const lineStomach = document.getElementById('line-stomach');
+      const dotStomach = document.getElementById('dot-stomach');
+      lineStomach.setAttribute('x1', stomachPos.x); lineStomach.setAttribute('y1', stomachPos.y);
+      lineStomach.setAttribute('x2', cStomachX); lineStomach.setAttribute('y2', cStomachY);
+      dotStomach.setAttribute('cx', stomachPos.x); dotStomach.setAttribute('cy', stomachPos.y);
+    }
+
+    /* ----------------------------------------------------
+       H. 系統主 Render 與 Animation Loop
+       ---------------------------------------------------- */
+    let lastTime = performance.now();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const now = performance.now();
+      const delta = (now - lastTime) / 1000;
+      lastTime = now;
+      state.time += delta;
+
+      // 1. 人物一體化群組生命力動畫 (呼吸與抖動)
+      const breath = Math.sin(state.time * 2) * 0.02;
+      characterGroup.position.y = breath;
+
+      // 咖啡因高頻抖動 (Jitter)
+      if (state.nutrition === 'caffeine') {
+        characterGroup.position.x = (Math.random() - 0.5) * 0.02;
+      } else {
+        characterGroup.position.x = 0;
+      }
+
+      // 2. 心臟幾何收縮搏動 (Non-uniform scale + pulse displacement)
+      const beatPeriod = 60 / state.bpm;
+      const beatPhase = (state.time % beatPeriod) / beatPeriod;
+
+      if (beatPhase < 0.15) {
+        // 心縮期快速形變
+        const contraction = Math.sin((beatPhase / 0.15) * Math.PI);
+        const scaleBase = anatomyConfig.heart.scale;
+        heartMesh.scale.x = scaleBase * (1 - contraction * 0.2); // X 軸擠壓
+        heartMesh.scale.y = scaleBase * (1 + contraction * 0.15); // Y 軸拉長
+        heartMesh.rotation.z = contraction * 0.1;
+      } else {
+        // 舒張期復原
+        heartMesh.scale.setScalar(anatomyConfig.heart.scale);
+        heartMesh.rotation.z = 0;
+      }
+
+      // 3. 腸胃蠕動動畫
+      const stomachWobble = Math.sin(state.time * 3) * 0.04;
+      stomachMesh.scale.x = anatomyConfig.digestive.scale + stomachWobble;
+      stomachMesh.scale.y = anatomyConfig.digestive.scale - stomachWobble;
+
+      // 4. 音訊時間軸排程 Trigger
+      if (state.isListening && state.audioCtx) {
+        const audioTime = state.audioCtx.currentTime;
+        if (audioTime >= nextBeatTime) {
+          triggerHeartSound(audioTime);
+          nextBeatTime = audioTime + beatPeriod;
+        }
+
+        // 腸胃聲音隨機處發
+        if (state.mode === 'stomach' && Math.random() < 0.03) {
+          triggerStomachSound();
+        }
+      }
+
+      // 5. 視覺高亮焦點切換
+      if (state.mode === 'heart') {
+        heartMesh.material.opacity = 1.0;
+        stomachMesh.material.opacity = 0.35;
+      } else {
+        heartMesh.material.opacity = 0.35;
+        stomachMesh.material.opacity = 1.0;
+      }
+
+      // 6. 渲染畫面與繪製輔助
+      renderer.render(scene, camera);
+      drawMonitors(delta);
+      updateOverlayLines();
+
+      // 更新即時時鐘
+      document.getElementById('info-val-time').textContent = new Date().toLocaleTimeString();
+    }
+
+    /* ----------------------------------------------------
+       I. UI 事件綁定與控制邏輯
+       ---------------------------------------------------- */
+    function switchMode(newMode) {
+      state.mode = newMode;
+      const btnHeart = document.getElementById('btn-mode-heart');
+      const btnStomach = document.getElementById('btn-mode-stomach');
+      const valModeText = document.getElementById('info-val-mode');
+
+      if (newMode === 'heart') {
+        btnHeart.className = 'btn btn-mode active-heart';
+        btnStomach.className = 'btn btn-mode';
+        valModeText.textContent = '心臟';
+        valModeText.style.color = 'var(--accent-heart)';
+      } else {
+        btnHeart.className = 'btn btn-mode';
+        btnStomach.className = 'btn btn-mode active-stomach';
+        valModeText.textContent = '腸胃';
+        valModeText.style.color = 'var(--accent-stomach)';
+      }
+      showToast(`切換聽診焦點至：${newMode === 'heart' ? '心臟' : '消化系統'}`);
+    }
+
+    function switchNutrition(nutrKey) {
+      state.nutrition = nutrKey;
+      const preset = nutritionPresets[nutrKey];
+      
+      // 更新 BPM
+      state.bpm = preset.bpm;
+      document.getElementById('bpm-slider').value = preset.bpm;
+      document.getElementById('bpm-val-display').textContent = `${preset.bpm} BPM`;
+
+      // 更新按鈕高亮
+      document.querySelectorAll('.btn-nutr').forEach(btn => {
+        if (btn.dataset.state === nutrKey) btn.classList.add('active');
+        else btn.classList.remove('active');
+      });
+
+      // 更新文字說明與右下角狀態卡
+      document.getElementById('info-desc-text').textContent = preset.desc;
+      document.getElementById('info-val-state').textContent = btnNameTranslate(nutrKey);
+      document.getElementById('val-expr').textContent = preset.expr;
+      document.getElementById('val-mood').textContent = preset.mood;
+      document.getElementById('val-energy').textContent = preset.energy;
+
+      showToast(`套用生理營養狀態：${btnNameTranslate(nutrKey)}`);
+    }
+
+    function btnNameTranslate(key) {
+      const names = { normal: '一般狀態', caffeine: '咖啡因', sugarCrash: '暴糖反應', highFiber: '高纖維', refinedSugar: '精緻糖' };
+      return names[key] || key;
+    }
+
+    function bindUIEvents() {
+      // 開始監聽
+      document.getElementById('btn-start').addEventListener('click', () => {
+        initAudioEngine();
+        if (state.audioCtx.state === 'suspended') {
+          state.audioCtx.resume();
+        }
+        masterGain.gain.linearRampToValueAtTime(1.0, state.audioCtx.currentTime + 0.2);
+        state.isListening = true;
+
+        document.getElementById('status-dot').className = 'dot active';
+        document.getElementById('status-text').textContent = '監聽中';
+        showToast('🔊 已啟動 Web Audio API 音訊合成引擎');
+      });
+
+      // 停止監聽
+      document.getElementById('btn-stop').addEventListener('click', () => {
+        if (state.audioCtx && masterGain) {
+          masterGain.gain.linearRampToValueAtTime(0.0001, state.audioCtx.currentTime + 0.2);
+        }
+        state.isListening = false;
+
+        document.getElementById('status-dot').className = 'dot';
+        document.getElementById('status-text').textContent = '已停止';
+        showToast('🔇 監聽已停止（全靜音）');
+      });
+
+      // 聽診模式按鈕
+      document.getElementById('btn-mode-heart').addEventListener('click', () => switchMode('heart'));
+      document.getElementById('btn-mode-stomach').addEventListener('click', () => switchMode('stomach'));
+
+      // 浮動卡片點擊切換
+      document.getElementById('float-card-heart').addEventListener('click', () => switchMode('heart'));
+      document.getElementById('float-card-stomach').addEventListener('click', () => switchMode('stomach'));
+
+      // 營養狀態按鈕
+      document.querySelectorAll('.btn-nutr').forEach(btn => {
+        btn.addEventListener('click', () => switchNutrition(btn.dataset.state));
+      });
+
+      // BPM 滑桿
+      const bpmSlider = document.getElementById('bpm-slider');
+      bpmSlider.addEventListener('input', (e) => {
+        state.bpm = parseInt(e.target.value);
+        document.getElementById('bpm-val-display').textContent = `${state.bpm} BPM`;
+        document.getElementById('heart-card-sub').textContent = `${state.bpm} BPM · 點擊切換`;
+      });
+
+      // 人物圖片上傳處理
+      document.getElementById('img-uploader').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          const img = new Image();
+          img.onload = function() {
+            const texture = new THREE.Texture(img);
+            texture.needsUpdate = true;
+            charMesh.material.map = texture;
+            charMesh.material.needsUpdate = true;
+            showToast('📷 已更新客製化人物圖片！');
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      // 視窗 Resize 重置 Three.js 相機與渲染器
+      window.addEventListener('resize', () => {
+        const container = document.getElementById('viewport-container');
+        const w = container.clientWidth, h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+    }
+
+    /* ----------------------------------------------------
+       J. 應用程式入口點 Initialization
+       ---------------------------------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      initThreeScene();
+      initCanvases();
+      bindUIEvents();
+      animate();
+    });
+  </script>
 </body>
 </html>
